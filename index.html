@@ -54,8 +54,7 @@
 
             const CLIENT_ID = '61975917009-4rqu0u1ctuqt1r3cu2m06t6o4gmjnf4v.apps.googleusercontent.com';
             // Added space-separated scopes for better compatibility
-            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly profile email';
-
+            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly.appfolder https://www.googleapis.com/auth/photoslibrary.readonly profile email';
             useEffect(() => {
                 if (window.google) {
                     tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({

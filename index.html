@@ -25,14 +25,15 @@
             const [currentImageIndex, setCurrentImageIndex] = useState(0);
             const [isSessionActive, setIsSessionActive] = useState(false);
             const [timeRemaining, setTimeRemaining] = useState(0);
+            const [manualId, setManualId] = useState("");
             
             const accessTokenRef = useRef(null);
             const tokenClientRef = useRef(null);
             const timerRef = useRef(null);
 
-            // Using your NEW Client ID
             const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
             const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+            const TIMES = [30, 60, 120, 300, 600]; // Class Mode intervals
 
             useEffect(() => {
                 if (window.google) {
@@ -54,30 +55,22 @@
 
             const fetchAlbums = async () => {
                 try {
-                    // Fetch Private Albums
                     const res = await fetch('https://photoslibrary.googleapis.com/v1/albums?pageSize=50', {
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
                     });
                     const data = await res.json();
-                    
-                    if (res.status === 403) {
-                        const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessTokenRef.current}`);
-                        const tokenData = await tokenInfo.json();
-                        setDebugRaw({ error: data, token_scopes: tokenData.scope });
-                        return;
-                    }
-
                     if (data.albums) {
-                        const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
-                        setAlbums(filtered.length > 0 ? filtered : data.albums);
+                        setAlbums(data.albums.filter(a => a.title.toLowerCase().includes('referen')));
                     }
                     setDebugRaw(data);
                 } catch (e) { setDebugRaw({ error: e.message }); }
             };
 
-            const startSession = async () => {
+            const startSession = async (useManual = false) => {
                 let all = [];
-                for (const id of selectedAlbums) {
+                const targetIds = useManual ? [manualId] : selectedAlbums;
+                
+                for (const id of targetIds) {
                     const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}`, 'Content-Type': 'application/json' },
@@ -88,9 +81,14 @@
                         all = [...all, ...data.mediaItems.map(i => ({ url: `${i.baseUrl}=w2048-h2048` }))];
                     }
                 }
-                setImages(all.sort(() => Math.random() - 0.5).slice(0, 20));
-                setIsSessionActive(true);
-                startTimer(60);
+                
+                if (all.length > 0) {
+                    setImages(all.sort(() => Math.random() - 0.5).slice(0, 20));
+                    setIsSessionActive(true);
+                    startTimer(TIMES[0]);
+                } else {
+                    alert("No images found in those albums.");
+                }
             };
 
             const startTimer = (dur) => {
@@ -103,9 +101,12 @@
 
             const nextImg = () => {
                 setCurrentImageIndex(prev => {
-                    if (prev + 1 >= images.length) { setIsSessionActive(false); return 0; }
-                    startTimer(60);
-                    return prev + 1;
+                    const next = prev + 1;
+                    if (next >= images.length) { setIsSessionActive(false); return 0; }
+                    // Progression logic: switch duration based on image index
+                    const timeIdx = Math.min(Math.floor(next / 4), TIMES.length - 1);
+                    startTimer(TIMES[timeIdx]);
+                    return next;
                 });
             };
 
@@ -120,33 +121,40 @@
                     {isSessionActive ? (
                         <div className="fixed inset-0 bg-black flex flex-col z-50">
                             <div className="p-4 bg-zinc-900 flex justify-between">
-                                <span className="text-xl font-mono">{timeRemaining}s</span>
-                                <button onClick={() => setIsSessionActive(false)} className="bg-red-600 px-4 py-1 rounded">End</button>
+                                <span className="text-xl font-mono text-white">{timeRemaining}s</span>
+                                <button onClick={() => setIsSessionActive(false)} className="bg-red-600 px-4 py-1 rounded text-white">End</button>
                             </div>
                             <img src={images[currentImageIndex]?.url} className="flex-1 object-contain" />
                         </div>
                     ) : (
                         <div className="bg-white text-gray-900 p-8 rounded-2xl shadow-xl">
-                            <h2 className="text-2xl font-bold mb-6">Select Reference Albums</h2>
+                            <h2 className="text-2xl font-bold mb-6">Approach A: Select Albums</h2>
                             {albums.length === 0 ? (
                                 <div className="p-4 bg-amber-50 rounded border border-amber-200 text-amber-800 mb-6">
-                                    <p className="font-bold">No albums found.</p>
+                                    <p className="font-bold">List still blocked by Google.</p>
                                     <details className="mt-2 text-xs">
                                         <summary className="cursor-pointer underline">Debug Diagnostic</summary>
                                         <pre className="bg-black text-green-400 p-2 mt-2 overflow-auto max-h-40">{JSON.stringify(debugRaw, null, 2)}</pre>
                                     </details>
                                 </div>
                             ) : (
-                                <div className="space-y-2 mb-8 max-h-60 overflow-y-auto">
+                                <div className="space-y-2 mb-8 max-h-40 overflow-y-auto">
                                     {albums.map(a => (
-                                        <label key={a.id} className={`flex items-center p-3 border-2 rounded-lg cursor-pointer ${selectedAlbums.includes(a.id) ? 'border-purple-600 bg-purple-50' : ''}`}>
-                                            <input type="checkbox" className="mr-3" checked={selectedAlbums.includes(a.id)} onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
+                                        <label key={a.id} className="flex items-center p-3 border rounded-lg">
+                                            <input type="checkbox" className="mr-3" onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
                                             {a.title}
                                         </label>
                                     ))}
+                                    <button onClick={() => startSession()} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-3 mt-2 rounded font-bold disabled:bg-gray-300">Start Session</button>
                                 </div>
                             )}
-                            <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold disabled:bg-gray-300 transition-colors">Start Session</button>
+                            
+                            <hr className="my-8" />
+                            
+                            <h2 className="text-2xl font-bold mb-2 text-blue-600">Approach B: Bypass (Direct ID)</h2>
+                            <p className="text-sm text-gray-500 mb-4 italic">Use this if the list above is empty.</p>
+                            <input type="text" className="w-full p-2 border rounded mb-2" placeholder="Paste Album ID here..." value={manualId} onChange={(e) => setManualId(e.target.value)} />
+                            <button onClick={() => startSession(true)} className="w-full bg-blue-600 text-white py-3 rounded font-bold">Load Direct Album</button>
                         </div>
                     )}
                 </div>

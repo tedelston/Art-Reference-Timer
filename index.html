@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art Reference Timer</title>
+    <title>Art Reference Timer - Bypass Mode</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900">
+<body class="bg-slate-900 text-white">
     <div id="root"></div>
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -19,132 +19,123 @@
             const [isAuthenticated, setIsAuthenticated] = useState(false);
             const [albums, setAlbums] = useState([]);
             const [debugRaw, setDebugRaw] = useState(null);
-            const [selectedAlbums, setSelectedAlbums] = useState([]);
             const [images, setImages] = useState([]);
-            const [currentImageIndex, setCurrentImageIndex] = useState(0);
             const [isSessionActive, setIsSessionActive] = useState(false);
-            const [timeRemaining, setTimeRemaining] = useState(0);
+            const [manualAlbumId, setManualAlbumId] = useState("");
             
-            const timerRef = useRef(null);
-            const tokenClientRef = useRef(null);
             const accessTokenRef = useRef(null);
+            const tokenClientRef = useRef(null);
 
-            // UPDATED: Use your new Client ID here if you created one
-            const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
-            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly profile email';
+            const CLIENT_ID = '61975917009-4rqu0u1ctuqt1r3cu2m06t6o4gmjnf4v.apps.googleusercontent.com';
+            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
 
             useEffect(() => {
                 if (window.google) {
                     tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
                         client_id: CLIENT_ID,
                         scope: SCOPES,
-                        prompt: 'select_account consent', // Forces a fresh start
                         callback: async (resp) => {
                             if (resp.access_token) {
                                 accessTokenRef.current = resp.access_token;
                                 setIsAuthenticated(true);
-                                fetchAlbums();
+                                fetchEverything();
                             }
                         },
                     });
                 }
             }, []);
 
-            const fetchAlbums = async () => {
+            // NEW APPROACH: Try to fetch both Private AND Shared albums
+            const fetchEverything = async () => {
+                const results = {};
                 try {
-                    const res = await fetch(`https://photoslibrary.googleapis.com/v1/albums?pageSize=50`, {
-                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` },
+                    // Try private albums
+                    const res1 = await fetch('https://photoslibrary.googleapis.com/v1/albums', {
+                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
                     });
-                    const data = await res.json();
-                    setDebugRaw(data);
+                    results.private = await res1.json();
+
+                    // Try shared albums (Different endpoint!)
+                    const res2 = await fetch('https://photoslibrary.googleapis.com/v1/sharedAlbums', {
+                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
+                    });
+                    results.shared = await res2.json();
+
+                    setDebugRaw(results);
                     
-                    if (res.ok && data.albums) {
-                        const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
-                        setAlbums(filtered.length > 0 ? filtered : data.albums);
-                    }
+                    const combined = [...(results.private.albums || []), ...(results.shared.sharedAlbums || [])];
+                    setAlbums(combined);
                 } catch (e) { setDebugRaw({ error: e.message }); }
             };
 
-            const startSession = async () => {
-                let all = [];
-                for (const id of selectedAlbums) {
+            // BYPASS METHOD: Load images directly without needing the Album List to work
+            const loadByDirectId = async () => {
+                try {
                     const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ albumId: id, pageSize: 100 })
+                        body: JSON.stringify({ albumId: manualAlbumId, pageSize: 50 })
                     });
                     const data = await res.json();
-                    all = [...all, ...(data.mediaItems || []).map(i => ({ url: `${i.baseUrl}=w2048-h2048` }))];
-                }
-                setImages(all.slice(0, 10));
-                setIsSessionActive(true);
-                startTimer(60);
+                    if (data.mediaItems) {
+                        setImages(data.mediaItems.map(i => ({ url: `${i.baseUrl}=w2048-h2048` })));
+                        setIsSessionActive(true);
+                    } else {
+                        alert("Could not find images in that Album ID. Check the ID and your permissions.");
+                        setDebugRaw(data);
+                    }
+                } catch (e) { alert(e.message); }
             };
 
-            const startTimer = (dur) => {
-                if (timerRef.current) clearInterval(timerRef.current);
-                setTimeRemaining(dur);
-                timerRef.current = setInterval(() => {
-                    setTimeRemaining(p => { if (p <= 1) { nextImg(); return 0; } return p - 1; });
-                }, 1000);
-            };
-
-            const nextImg = () => {
-                setCurrentImageIndex(prev => {
-                    if (prev + 1 >= images.length) { setIsSessionActive(false); return 0; }
-                    startTimer(60);
-                    return prev + 1;
-                });
-            };
-
-            if (!isAuthenticated) {
-                return (
-                    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-                        <h1 className="text-white text-3xl font-bold">Art Reference Timer</h1>
-                        <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg">Connect Photos</button>
-                        <button onClick={() => location.reload()} className="text-gray-400 text-xs underline">Force Refresh App</button>
-                    </div>
-                );
-            }
+            if (!isAuthenticated) return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 p-4 rounded-xl font-bold">Connect Photos</button>
+                </div>
+            );
 
             return (
-                <div className="min-h-screen bg-slate-100 p-6 flex items-center">
-                    <div className="max-w-2xl mx-auto w-full bg-white rounded-xl shadow-xl p-8">
-                        {isSessionActive ? (
-                            <div className="fixed inset-0 bg-black flex flex-col z-50">
-                                <div className="p-4 bg-zinc-900 text-white flex justify-between">
-                                    <span className="font-mono text-xl">{timeRemaining}s</span>
-                                    <button onClick={() => setIsSessionActive(false)} className="bg-red-800 px-4 py-1 rounded">End</button>
+                <div className="p-6 max-w-2xl mx-auto">
+                    {isSessionActive ? (
+                        <div className="fixed inset-0 bg-black flex flex-col z-50">
+                            <button onClick={() => setIsSessionActive(false)} className="absolute top-4 right-4 bg-red-600 p-2 rounded">Exit</button>
+                            <img src={images[0]?.url} className="h-full w-full object-contain" />
+                        </div>
+                    ) : (
+                        <div className="bg-white text-gray-900 p-8 rounded-xl shadow-2xl">
+                            <h2 className="text-xl font-bold mb-4">Approach A: Album List</h2>
+                            <div className="text-sm text-gray-500 mb-4 italic">If this list is empty, Approach B is our new fallback.</div>
+                            
+                            {albums.length > 0 ? (
+                                <div className="space-y-2 mb-6">
+                                    {albums.map(a => <div key={a.id} className="p-2 border rounded">{a.title}</div>)}
                                 </div>
-                                <div className="flex-1 flex items-center justify-center p-4">
-                                    <img src={images[currentImageIndex]?.url} className="max-h-full max-w-full object-contain" />
-                                </div>
-                            </div>
-                        ) : (
-                            <div>
-                                <h2 className="text-xl font-bold mb-4">Select Albums</h2>
-                                {albums.length === 0 ? (
-                                    <div className="p-4 bg-amber-50 rounded text-amber-800 mb-6">
-                                        <p>No albums found. Verify Publishing Sync.</p>
-                                        <details className="mt-2 text-xs">
-                                            <summary className="cursor-pointer underline">Debug Info</summary>
-                                            <pre className="bg-black text-green-400 p-2 mt-2 max-h-40 overflow-auto">{JSON.stringify(debugRaw, null, 2)}</pre>
-                                        </details>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 mb-6">
-                                        {albums.map(a => (
-                                            <label key={a.id} className="flex items-center p-2 border rounded cursor-pointer">
-                                                <input type="checkbox" className="mr-2" onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
-                                                {a.title}
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
-                                <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Drawing</button>
-                            </div>
-                        )}
-                    </div>
+                            ) : (
+                                <div className="p-4 bg-red-50 text-red-800 rounded mb-6">List still blocked by 403.</div>
+                            )}
+
+                            <hr className="my-8" />
+
+                            <h2 className="text-xl font-bold mb-2">Approach B: Direct Album ID (The Bypass)</h2>
+                            <p className="text-xs text-gray-500 mb-4">
+                                1. Open your album in Google Photos on your browser.<br/>
+                                2. Copy the long code at the end of the URL (after /album/...).<br/>
+                                3. Paste it here:
+                            </p>
+                            <input 
+                                type="text" 
+                                className="w-full p-2 border rounded mb-4" 
+                                placeholder="Paste Album ID here..."
+                                value={manualAlbumId}
+                                onChange={(e) => setManualAlbumId(e.target.value)}
+                            />
+                            <button onClick={loadByDirectId} className="w-full bg-blue-600 text-white p-3 rounded font-bold">Try Direct Loading</button>
+
+                            <details className="mt-8">
+                                <summary className="cursor-pointer text-xs text-blue-600 underline">View Raw Diagnostic Data</summary>
+                                <pre className="bg-black text-green-400 p-4 rounded text-xs mt-2 overflow-auto max-h-60">{JSON.stringify(debugRaw, null, 2)}</pre>
+                            </details>
+                        </div>
+                    )}
                 </div>
             );
         };

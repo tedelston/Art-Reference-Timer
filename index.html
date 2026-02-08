@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art Reference Timer - Fix 404</title>
+    <title>Art Reference Timer - Full System</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style> .mirror { transform: scaleX(-1); } </style>
 </head>
 <body class="bg-slate-900 text-white">
     <div id="root"></div>
@@ -17,55 +18,140 @@
 
         const ArtReferenceTimer = () => {
             const [isAuthenticated, setIsAuthenticated] = useState(false);
-            const [debug, setDebug] = useState("Ready...");
+            const [albums, setAlbums] = useState([]);
+            const [debugRaw, setDebugRaw] = useState(null);
+            const [selectedAlbums, setSelectedAlbums] = useState([]);
+            const [images, setImages] = useState([]);
+            const [currentImageIndex, setCurrentImageIndex] = useState(0);
+            const [isSessionActive, setIsSessionActive] = useState(false);
+            const [timeRemaining, setTimeRemaining] = useState(0);
+            
             const accessTokenRef = useRef(null);
             const tokenClientRef = useRef(null);
+            const timerRef = useRef(null);
 
+            // Using your NEW Client ID
             const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
             const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
 
             useEffect(() => {
                 if (window.google) {
-                    try {
-                        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-                            client_id: CLIENT_ID,
-                            scope: SCOPES,
-                            callback: (resp) => {
-                                if (resp.access_token) {
-                                    accessTokenRef.current = resp.access_token;
-                                    setIsAuthenticated(true);
-                                    setDebug("Authenticated! Fetching...");
-                                }
-                            },
-                        });
-                    } catch (err) { setDebug("Init Error: " + err.message); }
+                    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID,
+                        scope: SCOPES,
+                        prompt: 'consent',
+                        enable_serial_consent: true,
+                        callback: async (resp) => {
+                            if (resp.access_token) {
+                                accessTokenRef.current = resp.access_token;
+                                setIsAuthenticated(true);
+                                fetchAlbums();
+                            }
+                        },
+                    });
                 }
             }, []);
 
-            const handleConnect = () => {
-                setDebug("Opening Google Login...");
-                // This method is less prone to 404s than the redirect method
-                tokenClientRef.current.requestAccessToken(); 
+            const fetchAlbums = async () => {
+                try {
+                    // Fetch Private Albums
+                    const res = await fetch('https://photoslibrary.googleapis.com/v1/albums?pageSize=50', {
+                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
+                    });
+                    const data = await res.json();
+                    
+                    if (res.status === 403) {
+                        const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessTokenRef.current}`);
+                        const tokenData = await tokenInfo.json();
+                        setDebugRaw({ error: data, token_scopes: tokenData.scope });
+                        return;
+                    }
+
+                    if (data.albums) {
+                        const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
+                        setAlbums(filtered.length > 0 ? filtered : data.albums);
+                    }
+                    setDebugRaw(data);
+                } catch (e) { setDebugRaw({ error: e.message }); }
+            };
+
+            const startSession = async () => {
+                let all = [];
+                for (const id of selectedAlbums) {
+                    const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ albumId: id, pageSize: 100 })
+                    });
+                    const data = await res.json();
+                    if (data.mediaItems) {
+                        all = [...all, ...data.mediaItems.map(i => ({ url: `${i.baseUrl}=w2048-h2048` }))];
+                    }
+                }
+                setImages(all.sort(() => Math.random() - 0.5).slice(0, 20));
+                setIsSessionActive(true);
+                startTimer(60);
+            };
+
+            const startTimer = (dur) => {
+                if (timerRef.current) clearInterval(timerRef.current);
+                setTimeRemaining(dur);
+                timerRef.current = setInterval(() => {
+                    setTimeRemaining(p => { if (p <= 1) { nextImg(); return 0; } return p - 1; });
+                }, 1000);
+            };
+
+            const nextImg = () => {
+                setCurrentImageIndex(prev => {
+                    if (prev + 1 >= images.length) { setIsSessionActive(false); return 0; }
+                    startTimer(60);
+                    return prev + 1;
+                });
             };
 
             if (!isAuthenticated) return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-4">
-                    <h1 className="text-2xl font-bold mb-4">Connection Test</h1>
-                    <button onClick={handleConnect} className="bg-purple-600 px-6 py-3 rounded-lg font-bold shadow-xl active:scale-95 transition-transform">
-                        Connect Photos
-                    </button>
-                    <p className="mt-4 text-xs text-gray-400 font-mono">{debug}</p>
+                <div className="min-h-screen flex items-center justify-center">
+                    <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 p-6 rounded-xl font-bold shadow-2xl">Connect Google Photos</button>
                 </div>
             );
 
             return (
-                <div className="p-8">
-                    <h1 className="text-green-400 font-bold">Connection Success!</h1>
-                    <p className="text-sm">We have bypassed the 404. Now checking library access...</p>
+                <div className="p-6 max-w-2xl mx-auto min-h-screen">
+                    {isSessionActive ? (
+                        <div className="fixed inset-0 bg-black flex flex-col z-50">
+                            <div className="p-4 bg-zinc-900 flex justify-between">
+                                <span className="text-xl font-mono">{timeRemaining}s</span>
+                                <button onClick={() => setIsSessionActive(false)} className="bg-red-600 px-4 py-1 rounded">End</button>
+                            </div>
+                            <img src={images[currentImageIndex]?.url} className="flex-1 object-contain" />
+                        </div>
+                    ) : (
+                        <div className="bg-white text-gray-900 p-8 rounded-2xl shadow-xl">
+                            <h2 className="text-2xl font-bold mb-6">Select Reference Albums</h2>
+                            {albums.length === 0 ? (
+                                <div className="p-4 bg-amber-50 rounded border border-amber-200 text-amber-800 mb-6">
+                                    <p className="font-bold">No albums found.</p>
+                                    <details className="mt-2 text-xs">
+                                        <summary className="cursor-pointer underline">Debug Diagnostic</summary>
+                                        <pre className="bg-black text-green-400 p-2 mt-2 overflow-auto max-h-40">{JSON.stringify(debugRaw, null, 2)}</pre>
+                                    </details>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 mb-8 max-h-60 overflow-y-auto">
+                                    {albums.map(a => (
+                                        <label key={a.id} className={`flex items-center p-3 border-2 rounded-lg cursor-pointer ${selectedAlbums.includes(a.id) ? 'border-purple-600 bg-purple-50' : ''}`}>
+                                            <input type="checkbox" className="mr-3" checked={selectedAlbums.includes(a.id)} onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
+                                            {a.title}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                            <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold disabled:bg-gray-300 transition-colors">Start Session</button>
+                        </div>
+                    )}
                 </div>
             );
         };
-
         ReactDOM.render(<ArtReferenceTimer />, document.getElementById('root'));
     </script>
 </body>

@@ -30,7 +30,7 @@ const ArtReferenceTimer = () => {
   // IMPORTANT: This Client ID is SAFE to commit to GitHub - it's designed to be public
   // Replace this with your own Client ID from Google Cloud Console
   const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
-  const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+  const SCOPES = 'https://www.googleapis.com/auth/photospicker.readonly';
   
   const tokenClientRef = useRef(null);
   const accessTokenRef = useRef(null);
@@ -80,7 +80,7 @@ const ArtReferenceTimer = () => {
 
   const fetchAlbums = async () => {
     try {
-      const response = await fetch('https://photoslibrary.googleapis.com/v1/albums', {
+      const response = await fetch('https://photospicker.googleapis.com/v1/albums', {
         headers: {
           'Authorization': `Bearer ${accessTokenRef.current}`,
           'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ const ArtReferenceTimer = () => {
 
   const fetchImagesFromAlbum = async (albumId) => {
     try {
-      const response = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
+      const response = await fetch('https://photospicker.googleapis.com/v1/mediaItems:search', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessTokenRef.current}`,

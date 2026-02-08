@@ -24,12 +24,12 @@
             const [currentImageIndex, setCurrentImageIndex] = useState(0);
             const [isSessionActive, setIsSessionActive] = useState(false);
             const [timeRemaining, setTimeRemaining] = useState(0);
-            const [sessionConfig, setSessionConfig] = useState({ totalImages: 10, fixedDuration: 60 });
-
+            
             const timerRef = useRef(null);
             const tokenClientRef = useRef(null);
             const accessTokenRef = useRef(null);
 
+            // UPDATED: Use your new Client ID here if you created one
             const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
             const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly profile email';
 
@@ -38,8 +38,7 @@
                     tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
                         client_id: CLIENT_ID,
                         scope: SCOPES,
-                        prompt: 'consent', 
-                        enable_serial_consent: true, 
+                        prompt: 'select_account consent', // Forces a fresh start
                         callback: async (resp) => {
                             if (resp.access_token) {
                                 accessTokenRef.current = resp.access_token;
@@ -53,26 +52,13 @@
 
             const fetchAlbums = async () => {
                 try {
-                    // Added Cache-Busting to force a fresh server request
-                    const res = await fetch(`https://photoslibrary.googleapis.com/v1/albums?pageSize=50&t=${Date.now()}`, {
-                        headers: { 
-                            'Authorization': `Bearer ${accessTokenRef.current}`,
-                            'Accept': 'application/json' 
-                        },
+                    const res = await fetch(`https://photoslibrary.googleapis.com/v1/albums?pageSize=50`, {
+                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` },
                     });
-                    
                     const data = await res.json();
-                    
-                    if (res.status === 403) {
-                        const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessTokenRef.current}`);
-                        const tokenData = await tokenInfo.json();
-                        setDebugRaw({ api_error: data, scopes_in_token: tokenData.scope });
-                        return;
-                    }
-
                     setDebugRaw(data);
-                    if (data.albums) {
-                        // Broader filter to ensure we catch "Reference"
+                    
+                    if (res.ok && data.albums) {
                         const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
                         setAlbums(filtered.length > 0 ? filtered : data.albums);
                     }
@@ -90,9 +76,9 @@
                     const data = await res.json();
                     all = [...all, ...(data.mediaItems || []).map(i => ({ url: `${i.baseUrl}=w2048-h2048` }))];
                 }
-                setImages(all.slice(0, sessionConfig.totalImages));
+                setImages(all.slice(0, 10));
                 setIsSessionActive(true);
-                startTimer(sessionConfig.fixedDuration);
+                startTimer(60);
             };
 
             const startTimer = (dur) => {
@@ -106,15 +92,17 @@
             const nextImg = () => {
                 setCurrentImageIndex(prev => {
                     if (prev + 1 >= images.length) { setIsSessionActive(false); return 0; }
-                    startTimer(sessionConfig.fixedDuration);
+                    startTimer(60);
                     return prev + 1;
                 });
             };
 
             if (!isAuthenticated) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 text-white px-8 py-4 rounded-xl font-bold">Connect Photos</button>
+                    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+                        <h1 className="text-white text-3xl font-bold">Art Reference Timer</h1>
+                        <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg">Connect Photos</button>
+                        <button onClick={() => location.reload()} className="text-gray-400 text-xs underline">Force Refresh App</button>
                     </div>
                 );
             }
@@ -137,10 +125,10 @@
                                 <h2 className="text-xl font-bold mb-4">Select Albums</h2>
                                 {albums.length === 0 ? (
                                     <div className="p-4 bg-amber-50 rounded text-amber-800 mb-6">
-                                        <p>No albums found. Verify Cloud Console Sync.</p>
+                                        <p>No albums found. Verify Publishing Sync.</p>
                                         <details className="mt-2 text-xs">
                                             <summary className="cursor-pointer underline">Debug Info</summary>
-                                            <pre className="bg-black text-green-400 p-2 mt-2">{JSON.stringify(debugRaw, null, 2)}</pre>
+                                            <pre className="bg-black text-green-400 p-2 mt-2 max-h-40 overflow-auto">{JSON.stringify(debugRaw, null, 2)}</pre>
                                         </details>
                                     </div>
                                 ) : (
@@ -153,7 +141,7 @@
                                         ))}
                                     </div>
                                 )}
-                                <button onClick={startSession} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Drawing</button>
+                                <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Drawing</button>
                             </div>
                         )}
                     </div>

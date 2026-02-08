@@ -20,6 +20,50 @@
     </style>
 </head>
 <body>
+        // In your main settings screen, add this after the header:
+    <div className="bg-white rounded-2xl shadow-2xl p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+          <ImageIcon className="text-purple-600" /> Art Reference Timer
+        </h1>
+        <button 
+          onClick={() => {
+            setIsAuthenticated(false);
+            setAlbums([]);
+            setSelectedAlbums([]);
+            accessTokenRef.current = null;
+          }}
+          className="text-gray-600 hover:text-gray-800 text-sm underline"
+        >
+          Sign Out
+        </button>
+      </div>
+
+      {/* Policy Links - Smaller version for main screen */}
+      <div className="mb-6 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs">
+        <div className="flex flex-wrap gap-2 text-gray-700">
+          <a 
+            href="https://tedelston.github.io/Art-Reference-Timer/privacy-policy.html" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-purple-600"
+          >
+            Privacy Policy
+          </a>
+          <span>•</span>
+          <a 
+            href="https://tedelston.github.io/Art-Reference-Timer/terms-of-service.html" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-purple-600"
+          >
+            Terms
+          </a>
+        </div>
+      </div>
+
+      {/* Rest of your existing settings UI */}
+
     <div id="root"></div>
 
     <script type="text/babel">
@@ -323,23 +367,50 @@
             };
 
             if (!isAuthenticated) {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-                            <ImageIcon size={64} className="mx-auto mb-4 text-purple-600" />
-                            <h1 className="text-3xl font-bold text-gray-800 mb-2">Art Reference Timer</h1>
-                            <p className="text-gray-600 mb-6">
-                                Connect your Google Photos to access your reference image albums
-                            </p>
-                            <button
-                                onClick={handleSignIn}
-                                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors w-full"
-                            >
-                                Connect Google Photos
-                            </button>
-                        </div>
+              return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+                    <ImageIcon className="w-16 h-16 mx-auto mb-4 text-purple-600" />
+                    <h1 className="text-3xl font-bold text-gray-800 mb-2">Art Reference Timer</h1>
+                    <p className="text-gray-600 mb-6">Connect your Google Photos to access your reference image albums</p>
+        
+                    {/* Policy Links - REQUIRED by Google Photos API */}
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 mb-2 font-medium">Before connecting:</p>
+                      <div className="flex flex-col sm:flex-row gap-4 text-sm text-blue-700">
+                        <a 
+                         href="https://tedelston.github.io/Art-Reference-Timer/privacy-policy.html" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-blue-900"
+                        >
+                          Privacy Policy
+                        </a>
+                        <span className="hidden sm:inline">•</span>
+                        <a 
+                          href="https://tedelston.github.io/Art-Reference-Timer/terms-of-service.html" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-blue-900"
+                        >
+                          Terms of Service
+                        </a>
+                      </div>
                     </div>
-                );
+
+                    <button 
+                      onClick={handleSignIn}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors w-full"
+                    >
+                      Connect Google Photos
+                    </button>
+        
+                    <p className="text-sm text-gray-500 mt-4">
+                      Note: Demo mode will load sample albums
+                    </p>
+                  </div>
+                </div>
+              );
             }
 
             if (isSessionActive && !showSettings) {

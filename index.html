@@ -110,7 +110,7 @@
 
             const fetchAlbums = async () => {
                 try {
-                    const response = await fetch('https://photospicker.googleapis.com/v1/sessions', {
+                    const response = await fetch('https://photospicker.googleapis.com/v1/albums', {
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}` },
                     });
                     const data = await response.json();

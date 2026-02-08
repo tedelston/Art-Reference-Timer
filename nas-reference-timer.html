@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art Reference Timer - NAS Edition</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // SVG Icons
+        const Play = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+        );
+
+        const Pause = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+        );
+
+        const SkipForward = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+        );
+
+        const X = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        );
+
+        const ImageIcon = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+        );
+
+        const Folder = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+        );
+
+        const RefreshCw = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        );
+
+        const ArtReferenceTimer = () => {
+            // NAS Configuration
+            const [nasUrl, setNasUrl] = useState(localStorage.getItem('nasUrl') || '');
+            const [nasConnected, setNasConnected] = useState(false);
+            const [folders, setFolders] = useState([]);
+            const [selectedFolder, setSelectedFolder] = useState(null);
+            const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+
+            // Session State
+            const [images, setImages] = useState([]);
+            const [currentImageIndex, setCurrentImageIndex] = useState(0);
+            const [isSessionActive, setIsSessionActive] = useState(false);
+            const [isPaused, setIsPaused] = useState(false);
+            const [timeRemaining, setTimeRemaining] = useState(0);
+            const [showSettings, setShowSettings] = useState(true);
+
+            // Session Config
+            const [sessionConfig, setSessionConfig] = useState({
+                totalImages: 20,
+                timingMode: 'fixed',
+                fixedDuration: 60,
+                progressiveTimes: [30, 60, 120, 300, 600],
+                shuffle: true,
+                soundEnabled: true,
+                autoAdvance: true
+            });
+
+            const timerRef = useRef(null);
+            const audioRef = useRef(null);
+
+            // Save NAS URL to localStorage
+            useEffect(() => {
+                if (nasUrl) {
+                    localStorage.setItem('nasUrl', nasUrl);
+                }
+            }, [nasUrl]);
+
+            const testNasConnection = async () => {
+                if (!nasUrl) {
+                    alert('Please enter your NAS URL');
+                    return;
+                }
+
+                setIsLoadingFolders(true);
+                try {
+                    // Test connection and fetch folder list
+                    const response = await fetch(`${nasUrl}/list-folders`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to connect to NAS');
+                    }
+
+                    const data = await response.json();
+                    const referenceFolders = data.folders.filter(folder => 
+                        folder.toLowerCase().includes('reference')
+                    );
+                    
+                    setFolders(referenceFolders);
+                    setNasConnected(true);
+                } catch (error) {
+                    console.error('NAS connection error:', error);
+                    alert('Failed to connect to NAS. Make sure:\n\n1. Your NAS HTTP server is running\n2. The URL is correct (e.g., http://192.168.1.100:8080)\n3. CORS is enabled on your NAS\n4. You can access the NAS from this device');
+                } finally {
+                    setIsLoadingFolders(false);
+                }
+            };
+
+            const fetchImagesFromFolder = async (folderName) => {
+                try {
+                    const response = await fetch(`${nasUrl}/list-images?folder=${encodeURIComponent(folderName)}`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch images');
+                    }
+
+                    const data = await response.json();
+                    return data.images.map(img => ({
+                        id: img,
+                        url: `${nasUrl}/images/${encodeURIComponent(folderName)}/${encodeURIComponent(img)}`,
+                        filename: img
+                    }));
+                } catch (error) {
+                    console.error('Error fetching images:', error);
+                    return [];
+                }
+            };
+
+            const startSession = async () => {
+                if (!selectedFolder) {
+                    alert('Please select a folder');
+                    return;
+                }
+
+                setIsLoadingFolders(true);
+                const allImages = await fetchImagesFromFolder(selectedFolder);
+                
+                if (allImages.length === 0) {
+                    alert('No images found in this folder');
+                    setIsLoadingFolders(false);
+                    return;
+                }
+
+                // Randomly sample images
+                let selectedImages;
+                if (allImages.length <= sessionConfig.totalImages) {
+                    selectedImages = allImages;
+                } else {
+                    // Random sampling
+                    selectedImages = [];
+                    const usedIndices = new Set();
+                    
+                    while (selectedImages.length < sessionConfig.totalImages) {
+                        const randomIndex = Math.floor(Math.random() * allImages.length);
+                        if (!usedIndices.has(randomIndex)) {
+                            usedIndices.add(randomIndex);
+                            selectedImages.push(allImages[randomIndex]);
+                        }
+                    }
+                }
+
+                if (sessionConfig.shuffle) {
+                    selectedImages = selectedImages.sort(() => Math.random() - 0.5);
+                }
+
+                setImages(selectedImages);
+                setCurrentImageIndex(0);
+                setIsSessionActive(true);
+                setShowSettings(false);
+                setIsPaused(false);
+                setIsLoadingFolders(false);
+
+                const firstDuration = calculateDuration(0);
+                setTimeRemaining(firstDuration);
+                startTimer(firstDuration);
+            };
+
+            const calculateDuration = (imageIndex) => {
+                if (sessionConfig.timingMode === 'fixed') {
+                    return sessionConfig.fixedDuration;
+                } else {
+                    const { progressiveTimes } = sessionConfig;
+                    const segmentSize = Math.ceil(sessionConfig.totalImages / progressiveTimes.length);
+                    const segmentIndex = Math.min(
+                        Math.floor(imageIndex / segmentSize),
+                        progressiveTimes.length - 1
+                    );
+                    return progressiveTimes[segmentIndex];
+                }
+            };
+
+            const startTimer = (duration) => {
+                if (timerRef.current) clearInterval(timerRef.current);
+
+                let remaining = duration;
+                setTimeRemaining(remaining);
+
+                timerRef.current = setInterval(() => {
+                    remaining -= 1;
+                    setTimeRemaining(remaining);
+
+                    if (remaining <= 0) {
+                        playSound();
+                        if (sessionConfig.autoAdvance) {
+                            advanceToNextImage();
+                        } else {
+                            clearInterval(timerRef.current);
+                        }
+                    }
+                }, 1000);
+            };
+
+            const advanceToNextImage = () => {
+                const nextIndex = currentImageIndex + 1;
+
+                if (nextIndex >= images.length) {
+                    endSession();
+                    return;
+                }
+
+                setCurrentImageIndex(nextIndex);
+                const nextDuration = calculateDuration(nextIndex);
+                startTimer(nextDuration);
+            };
+
+            const skipImage = () => {
+                if (timerRef.current) clearInterval(timerRef.current);
+                advanceToNextImage();
+            };
+
+            const togglePause = () => {
+                if (isPaused) {
+                    startTimer(timeRemaining);
+                } else {
+                    if (timerRef.current) clearInterval(timerRef.current);
+                }
+                setIsPaused(!isPaused);
+            };
+
+            const endSession = () => {
+                if (timerRef.current) clearInterval(timerRef.current);
+                setIsSessionActive(false);
+                setShowSettings(true);
+                alert(`Session complete! You drew ${images.length} images.`);
+            };
+
+            const playSound = () => {
+                if (sessionConfig.soundEnabled && audioRef.current) {
+                    audioRef.current.play();
+                }
+            };
+
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Active Session View
+            if (isSessionActive && !showSettings) {
+                const currentImage = images[currentImageIndex];
+                const progress = ((currentImageIndex + 1) / images.length) * 100;
+
+                return (
+                    <div className="min-h-screen bg-black flex flex-col">
+                        <div className="bg-gray-900 p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="text-white font-semibold">
+                                    Image {currentImageIndex + 1} / {images.length}
+                                </span>
+                                <span className="text-gray-400">|</span>
+                                <span className="text-white font-mono text-xl">
+                                    {formatTime(timeRemaining)}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={togglePause}
+                                    className="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors"
+                                >
+                                    {isPaused ? <Play size={20} /> : <Pause size={20} />}
+                                </button>
+                                <button
+                                    onClick={skipImage}
+                                    className="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors"
+                                >
+                                    <SkipForward size={20} />
+                                </button>
+                                <button
+                                    onClick={endSession}
+                                    className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="w-full bg-gray-800 h-2">
+                            <div
+                                className="bg-purple-600 h-2 transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+
+                        <div className="flex-1 flex items-center justify-center p-8">
+                            {currentImage && (
+                                <img
+                                    src={currentImage.url}
+                                    alt={`Reference ${currentImageIndex + 1}`}
+                                    className="max-w-full max-h-full object-contain"
+                                    crossOrigin="anonymous"
+                                />
+                            )}
+                        </div>
+
+                        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+                            <div className={`bg-gray-900 bg-opacity-80 text-white px-6 py-3 rounded-full text-2xl font-mono ${timeRemaining <= 5 ? 'animate-pulse text-red-400' : ''}`}>
+                                {formatTime(timeRemaining)}
+                            </div>
+                        </div>
+
+                        <audio ref={audioRef} src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OZUQ0PVqzn77BfGAg+ltryxnMpBSp+zPLaizsIGGS57OihUQ0PUKXi8bllHAU2jdXzzn0vBSh4xu/glksMElmu5fCsWBUIQ5zi8L5xKAQuf8rx3I4+CRZiturqpVITC0ml4PGzaB0GM4vU8tGAMQYbccLu45ZPDRBUqOXuq1kXCT6Y3PLEcSYELIHO8diJOQcZaLvt559NEAxPqOPwtmMcBjiP1/PMeS0GI3fH8N2RQAoUXrTp66hVFApGnt/yvmwhBjGH0fPTgjQGHm7A7eSaUQ0PVqzl77BeGQc9ltvyxnUoBSh+y/HajDsIF2W57OihUhENT6Xh8bllHAU2jdT0z3wvBSh4xu/glkwLElqt5fCsWhYIRJvi8L5yKAQuf8rx3I4+CRVht+rqpVMSC0ml4PG0aB0FM4vU8tGAMQYbccPu45dPDRBUqOXuq1kWCT+Y3PLEcSYEK4DN8tiIOQcZabrs6J9ODAxPpuPxtmQcBjiP1/PMeywGI3fH8N+RQAoUXrTp66hVFApGnt/yv2wiBjGH0fPTgjQGHm3A7eSaUg0PVq3m77BeGQc9ltrzxnUoBSh+y/HajDsIF2S57OihUxENT6Xh8blmHAU2jdT0z3wvBSh4xu/glkwLElqt5fCsWhYIRJvi8L5yKAQuf8rx3I4/CRVht+rqpVMSC0ml4PG0aB0FM4vU8tGAMQYbccPu45dPDRBUqOXuq1kWCT6Y3PLEcSYEK4DN8tiIOQcZabrs6J9ODAxPpuPxtmQcBjiP1/PMeywGI3bH8N+RQAoUXrTp66hVFApGnt/yv2wiBjCH0fPTgjQGHm3A7eSaUg0PVq3m77BeGQc9ltrzxnUoBSh+y/HajDsIF2S57OihUxENT6Xh8blmHAU2jdT0z3wvBSh4xu/glkwLElqt5fCsWhYIRJzi8L5yKAQuf8rx3I4/CRVht+rqpVMSC0ml4PG0aB0FM4vU8tGAMQYbccPu45dPDRBUqOXuq1kWCT6Y3PLEcSYEK4DN8tiIOQcZabrs6J9ODAxPpuPxtmQcBjiP1/PMeywGI3bH8N+RQAoUXrTp66hVFApGnt/yv2wiBjCH0fPTgjQGHm3A7eSaUg0PVq3m77BeGQc9ltrzxnUoBSh+y/HajDsIF2S57OihUxENUKXh8blmHAU2jdT0z3wvBSh4xu/glkwLElqt5fCsWhYIRJzi8L5yKAQuf8rx3I4/CRVht+rqpVMSC0ml4PG0aB0FM4vU8tGAMQYbccPu45dPDRBUqOXuq1kWCT6Y3PLEcSYEK4DN8tiIOQcZabrs6J9ODAxPpuPxtmQcBjiP1/PMeywGI3bH8N+RQAoUXrTp66hVFApGnt/yv2wiBjCH0fPTgjQGHm3A7eSaUg0PVq3m77BeGQc9ltrzxnUoBSh+y/HajDsIF2S57OihUxENUKXh8blmHAU2jdT0z3wvBSh4xu/glkwLElqt5fCsWhYIRJzi8L5yKAQuf8rx3I4/CRVht+rqpVMSC0ml4PG0aB0FM4vU8tGAMQYbccPu45dPDQ==" />
+                    </div>
+                );
+            }
+
+            // Setup/Configuration View
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                                    <ImageIcon size={32} className="text-purple-600" />
+                                    Art Reference Timer
+                                </h1>
+                                {nasConnected && (
+                                    <button
+                                        onClick={() => {
+                                            setNasConnected(false);
+                                            setFolders([]);
+                                            setSelectedFolder(null);
+                                        }}
+                                        className="text-gray-600 hover:text-gray-800 text-sm underline"
+                                    >
+                                        Disconnect
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* NAS Connection */}
+                            {!nasConnected ? (
+                                <div className="mb-8">
+                                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Connect to NAS</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                NAS Server URL
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={nasUrl}
+                                                onChange={(e) => setNasUrl(e.target.value)}
+                                                placeholder="http://192.168.1.100:8080"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Enter your NAS HTTP server URL (e.g., http://192.168.1.100:8080 or https://nas.mydomain.com)
+                                            </p>
+                                        </div>
+                                        
+                                        <button
+                                            onClick={testNasConnection}
+                                            disabled={isLoadingFolders || !nasUrl}
+                                            className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {isLoadingFolders ? (
+                                                <>
+                                                    <RefreshCw size={20} className="animate-spin" />
+                                                    Connecting...
+                                                </>
+                                            ) : (
+                                                'Connect to NAS'
+                                            )}
+                                        </button>
+
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+                                            <strong className="block mb-2">⚙️ Setup Required:</strong>
+                                            <p className="mb-2">Your NAS needs to serve two API endpoints:</p>
+                                            <ul className="list-disc ml-5 space-y-1">
+                                                <li><code className="bg-gray-100 px-1">/list-folders</code> - Returns JSON list of folders</li>
+                                                <li><code className="bg-gray-100 px-1">/list-images?folder=NAME</code> - Returns images in folder</li>
+                                                <li><code className="bg-gray-100 px-1">/images/FOLDER/IMAGE.jpg</code> - Serves the image</li>
+                                            </ul>
+                                            <p className="mt-2">See README for setup instructions.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Folder Selection */}
+                                    <div className="mb-8">
+                                        <h2 className="text-xl font-semibold text-gray-700 mb-4">Select Reference Folder</h2>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {folders.map(folder => (
+                                                <label
+                                                    key={folder}
+                                                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                                        selectedFolder === folder
+                                                            ? 'border-purple-600 bg-purple-50'
+                                                            : 'border-gray-200 hover:border-purple-300'
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="folder"
+                                                        checked={selectedFolder === folder}
+                                                        onChange={() => setSelectedFolder(folder)}
+                                                        className="w-5 h-5 text-purple-600"
+                                                    />
+                                                    <Folder size={24} className="text-purple-600" />
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-gray-800">{folder}</div>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {folders.length === 0 && (
+                                            <p className="text-gray-500 text-center py-4">
+                                                No folders with "reference" in the name found.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Session Settings */}
+                                    <div className="space-y-6">
+                                        <h2 className="text-xl font-semibold text-gray-700">Session Settings</h2>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Number of Images
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="1000"
+                                                value={sessionConfig.totalImages}
+                                                onChange={(e) => setSessionConfig({ ...sessionConfig, totalImages: parseInt(e.target.value) })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                If folder has more images, they'll be randomly sampled
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Timing Mode
+                                            </label>
+                                            <select
+                                                value={sessionConfig.timingMode}
+                                                onChange={(e) => setSessionConfig({ ...sessionConfig, timingMode: e.target.value })}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                                            >
+                                                <option value="fixed">Fixed Duration</option>
+                                                <option value="progressive">Progressive (Gradually Longer)</option>
+                                            </select>
+                                        </div>
+
+                                        {sessionConfig.timingMode === 'fixed' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Duration per Image (seconds)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="10"
+                                                    max="3600"
+                                                    value={sessionConfig.fixedDuration}
+                                                    onChange={(e) => setSessionConfig({ ...sessionConfig, fixedDuration: parseInt(e.target.value) })}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {sessionConfig.timingMode === 'progressive' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Progressive Timing Pattern
+                                                </label>
+                                                <div className="bg-gray-50 p-4 rounded-lg">
+                                                    <p className="text-sm text-gray-600 mb-2">Images will progress through these durations:</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {sessionConfig.progressiveTimes.map((time, idx) => (
+                                                            <span key={idx} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                                                                {time < 60 ? `${time}s` : `${time / 60}min`}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-3">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={sessionConfig.shuffle}
+                                                    onChange={(e) => setSessionConfig({ ...sessionConfig, shuffle: e.target.checked })}
+                                                    className="w-5 h-5 text-purple-600"
+                                                />
+                                                <span className="text-gray-700">Shuffle images randomly</span>
+                                            </label>
+
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={sessionConfig.soundEnabled}
+                                                    onChange={(e) => setSessionConfig({ ...sessionConfig, soundEnabled: e.target.checked })}
+                                                    className="w-5 h-5 text-purple-600"
+                                                />
+                                                <span className="text-gray-700">Play sound when time is up</span>
+                                            </label>
+
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={sessionConfig.autoAdvance}
+                                                    onChange={(e) => setSessionConfig({ ...sessionConfig, autoAdvance: e.target.checked })}
+                                                    className="w-5 h-5 text-purple-600"
+                                                />
+                                                <span className="text-gray-700">Auto-advance to next image</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={startSession}
+                                        disabled={!selectedFolder || isLoadingFolders}
+                                        className="w-full mt-8 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-8 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg"
+                                    >
+                                        {isLoadingFolders ? (
+                                            <>
+                                                <RefreshCw size={24} className="animate-spin" />
+                                                Loading Images...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Play size={24} />
+                                                Start Drawing Session
+                                            </>
+                                        )}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<ArtReferenceTimer />, document.getElementById('root'));
+    </script>
+</body>
+</html>

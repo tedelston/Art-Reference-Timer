@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>Art Ref Timer - Picker Only</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -26,7 +27,7 @@
             const [isGrayscale, setIsGrayscale] = useState(false);
             const [status, setStatus] = useState("Ready...");
             
-            const [config, setConfig] = useState({ totalImages: 20, timingMode: 'fixed', fixedDuration: 60 });
+            const [config, setConfig] = useState({ totalImages: 20, fixedDuration: 60 });
             const accessTokenRef = useRef(null);
             const tokenClientRef = useRef(null);
             const timerRef = useRef(null);
@@ -58,22 +59,29 @@
                             headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
                         });
                         const data = await res.json();
-                        if (data.mediaItemsSet) { clearInterval(poll); setStatus("Shuffling..."); startSession(session.id); }
+                        if (data.mediaItemsSet) { 
+                            clearInterval(poll); 
+                            setStatus("Loading Batch..."); 
+                            loadMedia(session.id); 
+                        }
                     }, 2000);
                 } catch (e) { setStatus("Error: " + e.message); }
             };
 
-            const startSession = async (sessionId) => {
+            const loadMedia = async (sessionId) => {
                 const res = await fetch(`https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}`, {
                     headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
                 });
                 const data = await res.json();
                 if (data.mediaItems) {
-                    // This is the CRITICAL Picker-Only Fix:
-                    // Using mediaFileUri but stripping the restricted params to get a browser-ready link
-                    const items = data.mediaItems.sort(() => Math.random() - 0.5).slice(0, config.totalImages).map(i => ({
-                        url: `${i.mediaFileUri}=w2048`
-                    }));
+                    const items = data.mediaItems
+                        .sort(() => Math.random() - 0.5)
+                        .slice(0, config.totalImages)
+                        .map(i => ({
+                            // Adding =w2048-iv tells Google to serve this as an "Image View"
+                            // which is much more browser-friendly than the raw URI
+                            url: `${i.mediaFileUri}=w2048-iv`
+                        }));
                     setImages(items);
                     setIsSessionActive(true);
                     startTimer(config.fixedDuration);
@@ -115,19 +123,25 @@
                                 </div>
                             </div>
                             <div className="flex-1 flex items-center justify-center">
-                                <img src={images[currentImageIndex]?.url} className={`max-h-full max-w-full object-contain ${isMirrored ? 'mirror' : ''} ${isGrayscale ? 'grayscale' : ''}`} />
+                                <img 
+                                    key={currentImageIndex}
+                                    src={images[currentImageIndex]?.url} 
+                                    referrerPolicy="no-referrer"
+                                    className={`max-h-full max-w-full object-contain ${isMirrored ? 'mirror' : ''} ${isGrayscale ? 'grayscale' : ''}`} 
+                                    onError={() => setStatus("One image failed to load.")}
+                                />
                             </div>
                         </div>
                     ) : (
                         <div className="bg-white text-gray-900 p-8 rounded-3xl shadow-2xl max-w-md w-full">
                             <h1 className="text-2xl font-black mb-6 text-center">Art Reference Timer</h1>
                             <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div><label className="text-xs font-bold text-gray-400 block mb-1">COUNT</label>
+                                <div><label className="text-xs font-bold text-gray-400 block mb-1 uppercase">Images</label>
                                 <input type="number" className="w-full p-2 border rounded" value={config.totalImages} onChange={e => setConfig({...config, totalImages: parseInt(e.target.value)})} /></div>
-                                <div><label className="text-xs font-bold text-gray-400 block mb-1">TIME (SEC)</label>
+                                <div><label className="text-xs font-bold text-gray-400 block mb-1 uppercase">Seconds</label>
                                 <input type="number" className="w-full p-2 border rounded" value={config.fixedDuration} onChange={e => setConfig({...config, fixedDuration: parseInt(e.target.value)})} /></div>
                             </div>
-                            <button onClick={openPicker} className="bg-blue-600 text-white w-full py-4 rounded-xl font-bold shadow-lg">Start Picker Session</button>
+                            <button onClick={openPicker} className="bg-blue-600 text-white w-full py-4 rounded-xl font-bold shadow-lg">Open Picker</button>
                             <p className="mt-4 text-center text-xs text-slate-400 font-mono">{status}</p>
                         </div>
                     )}

@@ -114,7 +114,7 @@
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}` },
                     });
                     const data = await response.json();
-                    const filtered = (data.albums || []).filter(a => a.title.toLowerCase().includes('reference'));
+                    const filtered = (data.albums || []).filter(a => a.title.toLowerCase().includes('Reference'));
                     setAlbums(filtered);
                 } catch (e) { console.error(e); }
             };

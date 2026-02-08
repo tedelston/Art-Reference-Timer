@@ -123,7 +123,7 @@
                 let all = [];
                 for (const id of selectedAlbums) {
                     const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
-                        method: 'POST',
+                        method: 'CreateSession',
                         headers: { 'Authorization': `Bearer ${accessTokenRef.current}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ albumId: id, pageSize: 100 })
                     });

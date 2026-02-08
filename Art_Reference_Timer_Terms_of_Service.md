@@ -1,5 +1,5 @@
 Art Reference Timer Terms of Service
-Last updated: [08/02/2026]
+Last updated: 08/02/2026
 
 1. Agreement to terms
 These Terms of Service (“Terms”) govern your access to and use of the Art Reference Timer application (“the App”, “we”, “us”, or “our”). By accessing or using the App, you agree to be bound by these Terms. If you do not agree, you must not use the App.
@@ -95,18 +95,12 @@ We may suspend or terminate your access to the App at any time, with or without 
 You may stop using the App at any time. You can also revoke the App’s access to your Google account via your Google account settings.
 
 12. Governing law
-These Terms shall be governed by and construed in accordance with the laws of [YOUR COUNTRY / JURISDICTION], without regard to its conflict of law provisions. Any disputes arising from or relating to these Terms or the App will be subject to the exclusive jurisdiction of the courts of [YOUR CITY / REGION], unless otherwise required by applicable law.
+These Terms shall be governed by and construed in accordance with the laws of the United Kingdom, without regard to its conflict of law provisions. Any disputes arising from or relating to these Terms or the App will be subject to the exclusive jurisdiction of the courts of the United Kingdom, unless otherwise required by applicable law.
 
 13. Contact
 If you have questions about these Terms, please contact:
 
-Email: [your contact email]
+Email: tedelston1@gmail.com
 
 App name: Art Reference Timer
-
-You can now:
-
-Replace placeholders like [DATE], [your contact email], and [YOUR COUNTRY / JURISDICTION] with your own details.
-
-Host these as pages in your GitHub Pages repo and link to them from your OAuth consent screen and app UI as required by Google’s Photos API policies.
 

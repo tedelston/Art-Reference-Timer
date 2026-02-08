@@ -27,6 +27,8 @@
             const [images, setImages] = useState([]);
             const [currentImageIndex, setCurrentImageIndex] = useState(0);
             const [isSessionActive, setIsSessionActive] = useState(false);
+            const [isPaused, setIsPaused] = useState(false);
+            const [isMirrored, setIsMirrored] = useState(false);
             const [timeRemaining, setTimeRemaining] = useState(0);
             
             const [sessionConfig, setSessionConfig] = useState({
@@ -42,8 +44,7 @@
             const accessTokenRef = useRef(null);
 
             const CLIENT_ID = '61975917009-4rqu0u1ctuqt1r3cu2m06t6o4gmjnf4v.apps.googleusercontent.com';
-            // ONLY confirmed valid scopes from your previous screenshot
-            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly profile email';
+            const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
 
             useEffect(() => {
                 if (window.google) {
@@ -72,7 +73,8 @@
                     setDebugRaw(data);
                     
                     if (data.albums) {
-                        setAlbums(data.albums.filter(a => a.title.toLowerCase().includes('reference')));
+                        const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
+                        setAlbums(filtered.length > 0 ? filtered : data.albums);
                     }
                 } catch (e) { setDebugRaw({ error: e.message }); }
             };
@@ -91,7 +93,13 @@
                 if (sessionConfig.shuffle) all.sort(() => Math.random() - 0.5);
                 setImages(all.slice(0, sessionConfig.totalImages));
                 setIsSessionActive(true);
-                startTimer(sessionConfig.fixedDuration);
+                startTimer(calculateDuration(0));
+            };
+
+            const calculateDuration = (idx) => {
+                if (sessionConfig.timingMode === 'fixed') return sessionConfig.fixedDuration;
+                const step = Math.ceil(sessionConfig.totalImages / 5);
+                return sessionConfig.progressiveTimes[Math.min(Math.floor(idx / step), 4)];
             };
 
             const startTimer = (dur) => {
@@ -107,9 +115,10 @@
 
             const nextImg = () => {
                 setCurrentImageIndex(prev => {
-                    if (prev + 1 >= images.length) { setIsSessionActive(false); return 0; }
-                    startTimer(sessionConfig.fixedDuration);
-                    return prev + 1;
+                    const next = prev + 1;
+                    if (next >= images.length) { setIsSessionActive(false); return 0; }
+                    startTimer(calculateDuration(next));
+                    return next;
                 });
             };
 
@@ -117,8 +126,12 @@
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-                            <h1 className="text-2xl font-bold mb-6">Art Reference Timer</h1>
-                            <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 text-white w-full py-3 rounded-lg font-bold">Connect Google Photos</button>
+                            <h1 className="text-3xl font-bold mb-6 text-gray-800">Art Reference Timer</h1>
+                            <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 hover:bg-purple-700 text-white w-full py-4 rounded-xl font-bold">Connect Google Photos</button>
+                            <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
+                                <a href="privacy-policy.html" target="_blank" className="underline hover:text-purple-600">Privacy Policy</a>
+                                <a href="terms-of-service.html" target="_blank" className="hover:text-purple-600">Terms of Service</a>
+                            </div>
                         </div>
                     </div>
                 );
@@ -129,12 +142,15 @@
                     <div className="max-w-2xl mx-auto w-full bg-white rounded-xl shadow-xl p-8">
                         {isSessionActive ? (
                             <div className="fixed inset-0 bg-black flex flex-col z-50">
-                                <div className="p-4 bg-zinc-900 text-white flex justify-between">
-                                    <span className="font-mono text-xl">{timeRemaining}s</span>
-                                    <button onClick={() => setIsSessionActive(false)} className="bg-red-800 px-4 py-1 rounded">End</button>
+                                <div className="p-4 bg-zinc-900 text-white flex justify-between items-center">
+                                    <span className="font-mono text-xl">{Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setIsMirrored(!isMirrored)} className={`p-2 rounded ${isMirrored ? 'bg-purple-600 text-white' : 'bg-zinc-700'}`}>Mirror</button>
+                                        <button onClick={() => setIsSessionActive(false)} className="bg-red-800 px-4 py-1 rounded">End</button>
+                                    </div>
                                 </div>
                                 <div className="flex-1 flex items-center justify-center p-4">
-                                    <img src={images[currentImageIndex]?.url} className="max-h-full max-w-full object-contain" />
+                                    <img src={images[currentImageIndex]?.url} className={`max-h-full max-w-full object-contain ${isMirrored ? 'mirror' : ''}`} />
                                 </div>
                             </div>
                         ) : (
@@ -145,21 +161,27 @@
                                         <p>No albums found. Verify your permissions.</p>
                                         <details className="mt-2 text-xs">
                                             <summary className="cursor-pointer underline">Debug Info</summary>
-                                            <pre className="bg-black text-green-400 p-2 mt-2">{JSON.stringify(debugRaw, null, 2)}</pre>
+                                            <pre className="bg-black text-green-400 p-2 mt-2 max-h-40 overflow-auto">{JSON.stringify(debugRaw, null, 2)}</pre>
                                         </details>
-                                        <button onClick={() => location.reload()} className="mt-4 text-xs bg-amber-200 px-2 py-1 rounded">Refresh Page</button>
                                     </div>
                                 ) : (
                                     <div className="space-y-2 mb-6 max-h-40 overflow-y-auto">
                                         {albums.map(a => (
-                                            <label key={a.id} className="flex items-center p-2 border rounded cursor-pointer">
-                                                <input type="checkbox" className="mr-2" onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
+                                            <label key={a.id} className={`flex items-center p-2 border rounded cursor-pointer ${selectedAlbums.includes(a.id) ? 'bg-purple-50 border-purple-600' : ''}`}>
+                                                <input type="checkbox" className="mr-2" checked={selectedAlbums.includes(a.id)} onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
                                                 {a.title}
                                             </label>
                                         ))}
                                     </div>
                                 )}
-                                <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Drawing</button>
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <select className="p-2 border rounded" value={sessionConfig.timingMode} onChange={(e) => setSessionConfig({...sessionConfig, timingMode: e.target.value})}>
+                                        <option value="fixed">Fixed Duration</option>
+                                        <option value="progressive">Class Mode</option>
+                                    </select>
+                                    <input type="number" className="p-2 border rounded" value={sessionConfig.totalImages} onChange={(e) => setSessionConfig({...sessionConfig, totalImages: parseInt(e.target.value)})} />
+                                </div>
+                                <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Session</button>
                             </div>
                         )}
                     </div>

@@ -29,7 +29,7 @@ const ArtReferenceTimer = () => {
   // Google Photos API setup
   // IMPORTANT: This Client ID is SAFE to commit to GitHub - it's designed to be public
   // Replace this with your own Client ID from Google Cloud Console
-  const CLIENT_ID = '61975917009-4rqu0u1ctuqt1r3cu2m06t6o4gmjnf4v.apps.googleusercontent.com';
+  const CLIENT_ID = '61975917009-q31i0e0uq1ed8sp3gm8gsdgvpg0glbrk.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/photoslibrary.readonly';
   
   const tokenClientRef = useRef(null);

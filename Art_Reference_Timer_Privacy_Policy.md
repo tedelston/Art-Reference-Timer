@@ -1,5 +1,5 @@
 Art Reference Timer Privacy Policy
-Last updated: [08/02/2026]
+Last updated: 08/02/2026
 
 1. Introduction
 This Privacy Policy describes how Art Reference Timer (“the App”, “we”, “us”, or “our”) accesses, uses, and protects information when you use the application to connect to your Google account and view your Google Photos reference albums.
@@ -87,8 +87,7 @@ We may update this Privacy Policy from time to time. When we do, we will update 
 10. Contact
 If you have any questions about this Privacy Policy or wish to exercise your rights regarding data, please contact:
 
-Email: [your contact email]
-
+Email: tedelston1@gmail.com
 App name: Art Reference Timer
 
 Additionally, regarding Google Photos data, you should review Google’s own Privacy Policy and Photos policies for more details on how Google handles your information.

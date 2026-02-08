@@ -9,11 +9,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .mirror { transform: scaleX(-1); }
-        .fade-enter { opacity: 0; }
-        .fade-enter-active { opacity: 1; transition: opacity 500ms; }
-    </style>
+    <style> .mirror { transform: scaleX(-1); } </style>
 </head>
 <body class="bg-slate-900 text-white">
     <div id="root"></div>
@@ -29,6 +25,7 @@
             const [timeRemaining, setTimeRemaining] = useState(0);
             const [isMirrored, setIsMirrored] = useState(false);
             const [debug, setDebug] = useState("Ready...");
+            const [activeSessionId, setActiveSessionId] = useState(null);
 
             const tokenClientRef = useRef(null);
             const accessTokenRef = useRef(null);
@@ -46,7 +43,7 @@
                             if (resp.access_token) {
                                 accessTokenRef.current = resp.access_token;
                                 setIsAuthenticated(true);
-                                setDebug("Authenticated! Open Picker to select images.");
+                                setDebug("Authenticated! Click to Select.");
                             }
                         },
                     });
@@ -64,31 +61,33 @@
                         }
                     });
                     const session = await response.json();
+                    setActiveSessionId(session.id);
                     
-                    const pickerWindow = window.open(session.pickerUri, 'picker', 'width=600,height=800');
+                    window.open(session.pickerUri, 'picker', 'width=600,height=800');
                     
                     const pollInterval = setInterval(async () => {
-                        const statusRes = await fetch(`https://photospicker.googleapis.com/v1/sessions/${session.id}`, {
-                            headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
-                        });
-                        const statusData = await statusRes.json();
-                        
-                        if (statusData.mediaItemsSet) {
-                            clearInterval(pollInterval);
-                            setDebug("Scanning entire selection (this may take a moment)...");
-                            loadAllAndShuffle(session.id);
-                        }
-                    }, 2000);
+                        try {
+                            const statusRes = await fetch(`https://photospicker.googleapis.com/v1/sessions/${session.id}`, {
+                                headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
+                            });
+                            const statusData = await statusRes.json();
+                            
+                            if (statusData.mediaItemsSet) {
+                                clearInterval(pollInterval);
+                                setDebug("Images ready! Starting download...");
+                                loadAllAndShuffle(session.id);
+                            }
+                        } catch (e) { console.error("Polling error", e); }
+                    }, 3000);
                 } catch (err) { setDebug("Error: " + err.message); }
             };
 
             const loadAllAndShuffle = async (sessionId) => {
                 let allMediaItems = [];
                 let nextPageToken = null;
-                let pageCount = 0;
 
                 try {
-                    // PAGINATION LOOP: Loops until Google has no more pages of IDs to give
+                    setDebug("Fetching image list...");
                     do {
                         const url = `https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
                         const res = await fetch(url, {
@@ -100,15 +99,17 @@
                             allMediaItems = [...allMediaItems, ...data.mediaItems];
                         }
                         nextPageToken = data.nextPageToken;
-                        pageCount++;
                         setDebug(`Scanned ${allMediaItems.length} items...`);
                     } while (nextPageToken);
 
-                    // SHUFFLE & SLICE
-                    setDebug(`Shuffling ${allMediaItems.length} total items...`);
+                    if (allMediaItems.length === 0) {
+                        setDebug("No images found in selection.");
+                        return;
+                    }
+
                     const shuffled = allMediaItems.sort(() => Math.random() - 0.5);
                     const subset = shuffled.slice(0, 100).map(item => ({
-                        url: `${item.mediaFileUri}=w2048` // high-res base
+                        url: `${item.mediaFileUri}=w2048`
                     }));
 
                     setImages(subset);
@@ -138,7 +139,7 @@
 
             if (!isAuthenticated) return (
                 <div className="min-h-screen flex items-center justify-center">
-                    <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 px-8 py-4 rounded-xl font-bold text-xl shadow-2xl hover:bg-purple-700 transition-colors">Connect Google Account</button>
+                    <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 px-8 py-4 rounded-xl font-bold text-xl shadow-2xl hover:bg-purple-700">Connect Google Account</button>
                 </div>
             );
 
@@ -152,44 +153,16 @@
                                 </div>
                                 <div className="flex gap-4">
                                     <button onClick={() => setIsMirrored(!isMirrored)} className={`px-4 py-2 rounded font-bold ${isMirrored ? 'bg-purple-600' : 'bg-zinc-700'}`}>Mirror</button>
-                                    <button onClick={() => setIsSessionActive(false)} className="bg-red-900 px-4 py-2 rounded font-bold">End Session</button>
+                                    <button onClick={() => setIsSessionActive(false)} className="bg-red-900 px-4 py-2 rounded font-bold">End</button>
                                 </div>
                             </div>
                             <div className="flex-1 flex items-center justify-center p-4">
-                                <img 
-                                    src={images[currentImageIndex]?.url} 
-                                    className={`max-h-full max-w-full object-contain shadow-2xl transition-transform duration-300 ${isMirrored ? 'mirror' : ''}`} 
-                                />
-                            </div>
-                            <div className="p-2 text-center text-zinc-500 text-xs">
-                                Image {currentImageIndex + 1} of {images.length}
+                                <img src={images[currentImageIndex]?.url} className={`max-h-full max-w-full object-contain ${isMirrored ? 'mirror' : ''}`} />
                             </div>
                         </div>
                     ) : (
                         <div className="bg-white text-gray-900 p-10 rounded-3xl shadow-2xl max-w-lg w-full text-center">
-                            <h1 className="text-3xl font-black mb-2 text-slate-800">Art Ref Timer</h1>
-                            <p className="text-slate-500 mb-8 italic">Picker API Edition</p>
+                            <h1 className="text-3xl font-black mb-6 text-slate-800 tracking-tight">Art Ref Timer</h1>
                             
-                            <div className="bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
-                                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Instructions</p>
-                                <ol className="text-left text-sm space-y-3 text-slate-600">
-                                    <li>1. Click "Select Album" below.</li>
-                                    <li>2. In the Google window, open your album and click <strong>"Select All"</strong>.</li>
-                                    <li>3. This app will scan <strong>all {'>'}9000</strong> photos, shuffle them, and pick 100 random ones.</li>
-                                </ol>
-                            </div>
-
-                            <button onClick={openPicker} className="bg-blue-600 hover:bg-blue-700 text-white w-full py-5 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-95">
-                                Select Album & Start
-                            </button>
-                            
-                            <p className="mt-6 text-xs font-mono text-slate-400">{debug}</p>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-        ReactDOM.render(<ArtReferenceTimer />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                            <div className="space-y-4">
+                                <button onClick={openPicker} className="bg

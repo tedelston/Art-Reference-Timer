@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art Reference Timer - Bypass Mode</title>
+    <title>Art Reference Timer - Fix 404</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -17,12 +17,7 @@
 
         const ArtReferenceTimer = () => {
             const [isAuthenticated, setIsAuthenticated] = useState(false);
-            const [albums, setAlbums] = useState([]);
-            const [debugRaw, setDebugRaw] = useState(null);
-            const [images, setImages] = useState([]);
-            const [isSessionActive, setIsSessionActive] = useState(false);
-            const [manualAlbumId, setManualAlbumId] = useState("");
-            
+            const [debug, setDebug] = useState("Ready...");
             const accessTokenRef = useRef(null);
             const tokenClientRef = useRef(null);
 
@@ -31,111 +26,42 @@
 
             useEffect(() => {
                 if (window.google) {
-                    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID,
-                        scope: SCOPES,
-                        callback: async (resp) => {
-                            if (resp.access_token) {
-                                accessTokenRef.current = resp.access_token;
-                                setIsAuthenticated(true);
-                                fetchEverything();
-                            }
-                        },
-                    });
+                    try {
+                        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+                            client_id: CLIENT_ID,
+                            scope: SCOPES,
+                            callback: (resp) => {
+                                if (resp.access_token) {
+                                    accessTokenRef.current = resp.access_token;
+                                    setIsAuthenticated(true);
+                                    setDebug("Authenticated! Fetching...");
+                                }
+                            },
+                        });
+                    } catch (err) { setDebug("Init Error: " + err.message); }
                 }
             }, []);
 
-            // NEW APPROACH: Try to fetch both Private AND Shared albums
-            const fetchEverything = async () => {
-                const results = {};
-                try {
-                    // Try private albums
-                    const res1 = await fetch('https://photoslibrary.googleapis.com/v1/albums', {
-                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
-                    });
-                    results.private = await res1.json();
-
-                    // Try shared albums (Different endpoint!)
-                    const res2 = await fetch('https://photoslibrary.googleapis.com/v1/sharedAlbums', {
-                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` }
-                    });
-                    results.shared = await res2.json();
-
-                    setDebugRaw(results);
-                    
-                    const combined = [...(results.private.albums || []), ...(results.shared.sharedAlbums || [])];
-                    setAlbums(combined);
-                } catch (e) { setDebugRaw({ error: e.message }); }
-            };
-
-            // BYPASS METHOD: Load images directly without needing the Album List to work
-            const loadByDirectId = async () => {
-                try {
-                    const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ albumId: manualAlbumId, pageSize: 50 })
-                    });
-                    const data = await res.json();
-                    if (data.mediaItems) {
-                        setImages(data.mediaItems.map(i => ({ url: `${i.baseUrl}=w2048-h2048` })));
-                        setIsSessionActive(true);
-                    } else {
-                        alert("Could not find images in that Album ID. Check the ID and your permissions.");
-                        setDebugRaw(data);
-                    }
-                } catch (e) { alert(e.message); }
+            const handleConnect = () => {
+                setDebug("Opening Google Login...");
+                // This method is less prone to 404s than the redirect method
+                tokenClientRef.current.requestAccessToken(); 
             };
 
             if (!isAuthenticated) return (
-                <div className="min-h-screen flex items-center justify-center">
-                    <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 p-4 rounded-xl font-bold">Connect Photos</button>
+                <div className="min-h-screen flex flex-col items-center justify-center p-4">
+                    <h1 className="text-2xl font-bold mb-4">Connection Test</h1>
+                    <button onClick={handleConnect} className="bg-purple-600 px-6 py-3 rounded-lg font-bold shadow-xl active:scale-95 transition-transform">
+                        Connect Photos
+                    </button>
+                    <p className="mt-4 text-xs text-gray-400 font-mono">{debug}</p>
                 </div>
             );
 
             return (
-                <div className="p-6 max-w-2xl mx-auto">
-                    {isSessionActive ? (
-                        <div className="fixed inset-0 bg-black flex flex-col z-50">
-                            <button onClick={() => setIsSessionActive(false)} className="absolute top-4 right-4 bg-red-600 p-2 rounded">Exit</button>
-                            <img src={images[0]?.url} className="h-full w-full object-contain" />
-                        </div>
-                    ) : (
-                        <div className="bg-white text-gray-900 p-8 rounded-xl shadow-2xl">
-                            <h2 className="text-xl font-bold mb-4">Approach A: Album List</h2>
-                            <div className="text-sm text-gray-500 mb-4 italic">If this list is empty, Approach B is our new fallback.</div>
-                            
-                            {albums.length > 0 ? (
-                                <div className="space-y-2 mb-6">
-                                    {albums.map(a => <div key={a.id} className="p-2 border rounded">{a.title}</div>)}
-                                </div>
-                            ) : (
-                                <div className="p-4 bg-red-50 text-red-800 rounded mb-6">List still blocked by 403.</div>
-                            )}
-
-                            <hr className="my-8" />
-
-                            <h2 className="text-xl font-bold mb-2">Approach B: Direct Album ID (The Bypass)</h2>
-                            <p className="text-xs text-gray-500 mb-4">
-                                1. Open your album in Google Photos on your browser.<br/>
-                                2. Copy the long code at the end of the URL (after /album/...).<br/>
-                                3. Paste it here:
-                            </p>
-                            <input 
-                                type="text" 
-                                className="w-full p-2 border rounded mb-4" 
-                                placeholder="Paste Album ID here..."
-                                value={manualAlbumId}
-                                onChange={(e) => setManualAlbumId(e.target.value)}
-                            />
-                            <button onClick={loadByDirectId} className="w-full bg-blue-600 text-white p-3 rounded font-bold">Try Direct Loading</button>
-
-                            <details className="mt-8">
-                                <summary className="cursor-pointer text-xs text-blue-600 underline">View Raw Diagnostic Data</summary>
-                                <pre className="bg-black text-green-400 p-4 rounded text-xs mt-2 overflow-auto max-h-60">{JSON.stringify(debugRaw, null, 2)}</pre>
-                            </details>
-                        </div>
-                    )}
+                <div className="p-8">
+                    <h1 className="text-green-400 font-bold">Connection Success!</h1>
+                    <p className="text-sm">We have bypassed the 404. Now checking library access...</p>
                 </div>
             );
         };

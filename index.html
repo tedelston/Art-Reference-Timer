@@ -9,15 +9,9 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .mirror { transform: scaleX(-1); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    </style>
 </head>
 <body class="bg-slate-900">
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
@@ -30,15 +24,7 @@
             const [currentImageIndex, setCurrentImageIndex] = useState(0);
             const [isSessionActive, setIsSessionActive] = useState(false);
             const [timeRemaining, setTimeRemaining] = useState(0);
-            const [isMirrored, setIsMirrored] = useState(false);
-            
-            const [sessionConfig, setSessionConfig] = useState({
-                totalImages: 10,
-                timingMode: 'fixed',
-                fixedDuration: 60,
-                progressiveTimes: [30, 60, 120, 300, 600],
-                shuffle: true
-            });
+            const [sessionConfig, setSessionConfig] = useState({ totalImages: 10, fixedDuration: 60 });
 
             const timerRef = useRef(null);
             const tokenClientRef = useRef(null);
@@ -52,7 +38,7 @@
                     tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
                         client_id: CLIENT_ID,
                         scope: SCOPES,
-                        prompt: 'consent select_account', 
+                        prompt: 'consent', 
                         enable_serial_consent: true, 
                         callback: async (resp) => {
                             if (resp.access_token) {
@@ -67,34 +53,30 @@
 
             const fetchAlbums = async () => {
                 try {
-                    const res = await fetch('https://photoslibrary.googleapis.com/v1/albums?pageSize=50', {
-                        headers: { 'Authorization': `Bearer ${accessTokenRef.current}` },
+                    // Added Cache-Busting to force a fresh server request
+                    const res = await fetch(`https://photoslibrary.googleapis.com/v1/albums?pageSize=50&t=${Date.now()}`, {
+                        headers: { 
+                            'Authorization': `Bearer ${accessTokenRef.current}`,
+                            'Accept': 'application/json' 
+                        },
                     });
                     
                     const data = await res.json();
                     
                     if (res.status === 403) {
-                        // Diagnostic Token Decoder
                         const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessTokenRef.current}`);
                         const tokenData = await tokenInfo.json();
-                        setDebugRaw({
-                            api_error: data,
-                            scopes_actually_in_token: tokenData.scope || "NONE FOUND",
-                            suggestion: "If 'photoslibrary.readonly' is missing above, your Google Cloud Scopes are not synced."
-                        });
+                        setDebugRaw({ api_error: data, scopes_in_token: tokenData.scope });
                         return;
                     }
 
                     setDebugRaw(data);
                     if (data.albums) {
-                        // Broader filter to ensure we catch your albums
-                        let filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
-                        if (filtered.length === 0) filtered = data.albums;
-                        setAlbums(filtered);
+                        // Broader filter to ensure we catch "Reference"
+                        const filtered = data.albums.filter(a => a.title.toLowerCase().includes('referen'));
+                        setAlbums(filtered.length > 0 ? filtered : data.albums);
                     }
-                } catch (e) { 
-                    setDebugRaw({ error: e.message }); 
-                }
+                } catch (e) { setDebugRaw({ error: e.message }); }
             };
 
             const startSession = async () => {
@@ -108,7 +90,6 @@
                     const data = await res.json();
                     all = [...all, ...(data.mediaItems || []).map(i => ({ url: `${i.baseUrl}=w2048-h2048` }))];
                 }
-                if (sessionConfig.shuffle) all.sort(() => Math.random() - 0.5);
                 setImages(all.slice(0, sessionConfig.totalImages));
                 setIsSessionActive(true);
                 startTimer(sessionConfig.fixedDuration);
@@ -118,10 +99,7 @@
                 if (timerRef.current) clearInterval(timerRef.current);
                 setTimeRemaining(dur);
                 timerRef.current = setInterval(() => {
-                    setTimeRemaining(p => {
-                        if (p <= 1) { nextImg(); return 0; }
-                        return p - 1;
-                    });
+                    setTimeRemaining(p => { if (p <= 1) { nextImg(); return 0; } return p - 1; });
                 }, 1000);
             };
 
@@ -135,15 +113,8 @@
 
             if (!isAuthenticated) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-                            <h1 className="text-3xl font-bold mb-6 text-gray-800">Art Reference Timer</h1>
-                            <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 hover:bg-purple-700 text-white w-full py-4 rounded-xl font-bold transition-all shadow-lg">Connect Google Photos</button>
-                            <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
-                                <a href="privacy-policy.html" target="_blank" className="underline hover:text-purple-600">Privacy Policy</a>
-                                <a href="terms-of-service.html" target="_blank" className="hover:text-purple-600">Terms of Service</a>
-                            </div>
-                        </div>
+                    <div className="min-h-screen flex items-center justify-center">
+                        <button onClick={() => tokenClientRef.current.requestAccessToken()} className="bg-purple-600 text-white px-8 py-4 rounded-xl font-bold">Connect Photos</button>
                     </div>
                 );
             }
@@ -155,51 +126,34 @@
                             <div className="fixed inset-0 bg-black flex flex-col z-50">
                                 <div className="p-4 bg-zinc-900 text-white flex justify-between">
                                     <span className="font-mono text-xl">{timeRemaining}s</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setIsMirrored(!isMirrored)} className={`p-2 rounded ${isMirrored ? 'bg-purple-600' : 'bg-zinc-700'}`}>Mirror</button>
-                                        <button onClick={() => setIsSessionActive(false)} className="bg-red-800 px-4 py-1 rounded">End</button>
-                                    </div>
+                                    <button onClick={() => setIsSessionActive(false)} className="bg-red-800 px-4 py-1 rounded">End</button>
                                 </div>
                                 <div className="flex-1 flex items-center justify-center p-4">
-                                    <img src={images[currentImageIndex]?.url} className={`max-h-full max-w-full object-contain ${isMirrored ? 'mirror' : ''}`} />
+                                    <img src={images[currentImageIndex]?.url} className="max-h-full max-w-full object-contain" />
                                 </div>
                             </div>
                         ) : (
                             <div>
                                 <h2 className="text-xl font-bold mb-4">Select Albums</h2>
                                 {albums.length === 0 ? (
-                                    <div className="p-4 bg-amber-50 rounded text-amber-800 mb-6 border border-amber-200">
-                                        <p className="font-bold">No albums found.</p>
-                                        <p className="text-sm">Please check the Debug Info below to see if the Photo Permission is active.</p>
-                                        <details className="mt-4 text-xs">
-                                            <summary className="cursor-pointer underline font-bold">View Debug Info (Diagnostic)</summary>
-                                            <pre className="bg-black text-green-400 p-3 mt-2 overflow-auto max-h-60 rounded">{JSON.stringify(debugRaw, null, 2)}</pre>
+                                    <div className="p-4 bg-amber-50 rounded text-amber-800 mb-6">
+                                        <p>No albums found. Verify Cloud Console Sync.</p>
+                                        <details className="mt-2 text-xs">
+                                            <summary className="cursor-pointer underline">Debug Info</summary>
+                                            <pre className="bg-black text-green-400 p-2 mt-2">{JSON.stringify(debugRaw, null, 2)}</pre>
                                         </details>
-                                        <button onClick={() => location.reload()} className="mt-4 bg-amber-200 hover:bg-amber-300 px-4 py-2 rounded text-xs font-bold transition-colors">Restart Login</button>
                                     </div>
                                 ) : (
-                                    <div className="space-y-2 mb-6 max-h-60 overflow-y-auto pr-2">
+                                    <div className="space-y-2 mb-6">
                                         {albums.map(a => (
-                                            <label key={a.id} className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${selectedAlbums.includes(a.id) ? 'border-purple-600 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}>
-                                                <input type="checkbox" className="mr-3 w-4 h-4 accent-purple-600" checked={selectedAlbums.includes(a.id)} onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
-                                                <span className="font-medium">{a.title}</span>
+                                            <label key={a.id} className="flex items-center p-2 border rounded cursor-pointer">
+                                                <input type="checkbox" className="mr-2" onChange={() => setSelectedAlbums(p => p.includes(a.id) ? p.filter(i => i !== a.id) : [...p, a.id])} />
+                                                {a.title}
                                             </label>
                                         ))}
                                     </div>
                                 )}
-                                <div className="border-t pt-6 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Image Count</label>
-                                            <input type="number" className="w-full p-2 border rounded" value={sessionConfig.totalImages} onChange={(e) => setSessionConfig({...sessionConfig, totalImages: parseInt(e.target.value)})}/>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Duration (Sec)</label>
-                                            <input type="number" className="w-full p-2 border rounded" value={sessionConfig.fixedDuration} onChange={(e) => setSessionConfig({...sessionConfig, fixedDuration: parseInt(e.target.value)})}/>
-                                        </div>
-                                    </div>
-                                    <button onClick={startSession} disabled={selectedAlbums.length === 0} className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold disabled:bg-gray-300 transition-all shadow-lg">Start Drawing Session</button>
-                                </div>
+                                <button onClick={startSession} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold">Start Drawing</button>
                             </div>
                         )}
                     </div>

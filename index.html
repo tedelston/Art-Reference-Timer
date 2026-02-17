@@ -986,6 +986,7 @@ input[type=range]::-webkit-slider-thumb {
     <button class="ctrl-btn" onclick="prevImage()" title="Previous (←)">◀</button>
     <button class="ctrl-btn primary" id="play-btn" onclick="togglePause()" title="Pause (Space)">⏸</button>
     <button class="ctrl-btn" onclick="nextImage()" title="Next (→)">▶</button>
+    <button class="ctrl-btn" onclick="toggleFullscreen()" title="Fullscreen (F)" id="fullscreen-btn">⛶</button>
 
     <span class="next-dur" id="next-dur-label"></span>
   </div>
@@ -1411,6 +1412,23 @@ function restartSession() {
   startSession();
 }
 
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+// Update fullscreen button icon when state changes
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fullscreen-btn');
+  if (btn) {
+    btn.textContent = document.fullscreenElement ? '⊡' : '⛶';
+    btn.title = document.fullscreenElement ? 'Exit Fullscreen (F)' : 'Fullscreen (F)';
+  }
+});
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   const s = document.getElementById('screen-session');
@@ -1420,8 +1438,8 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
   else if (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
   else if (e.key === 'f' || e.key === 'F') {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    e.preventDefault();
+    toggleFullscreen();
   }
   else if (e.key === 'g' || e.key === 'G') {
     toggleOption('grayscale');

@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ArtRef — Reference Session</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #0e0d0b;
+  --bg2:         #161410;
+  --bg3:         #1e1b16;
+  --surface:     #252118;
+  --border:      #333026;
+  --amber:       #c8903a;
+  --amber-bright:#e8a84a;
+  --amber-dim:   #7a5520;
+  --text:        #e2d8c8;
+  --text-dim:    #8a806e;
+  --text-faint:  #4a4438;
+  --danger:      #c05040;
+  --success:     #6a9a5a;
+  --radius:      6px;
+  --mono: 'JetBrains Mono', monospace;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* ── Utility ──────────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+
+/* ── Grain overlay ────────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 150px 150px;
+  opacity: 0.4;
+}
+
+/* ── Screens ──────────────────────────────────────────────────────────────── */
+.screen {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.4s ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* LOGIN SCREEN                                                                 */
+/* ─────────────────────────────────────────────────────────────────────────── */
+#screen-login {
+  background:
+    radial-gradient(ellipse 60% 60% at 30% 70%, rgba(200,144,58,0.06) 0%, transparent 70%),
+    var(--bg);
+}
+
+.login-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 0 24px;
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.login-brand h1 {
+  font-size: 3.2rem;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.login-brand p {
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  letter-spacing: 0.06em;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  border-color: var(--amber-dim);
+}
+
+.form-group input::placeholder { color: var(--text-faint); }
+
+.btn-primary {
+  width: 100%;
+  margin-top: 24px;
+  background: var(--amber);
+  border: none;
+  border-radius: var(--radius);
+  color: #1a1410;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary:hover  { background: var(--amber-bright); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { background: var(--text-faint); cursor: not-allowed; }
+
+.login-hint {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  text-align: center;
+  margin-top: 16px;
+}
+
+.login-error {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--danger);
+  text-align: center;
+  margin-top: 12px;
+  min-height: 18px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* SESSION SETUP SCREEN                                                         */
+/* ─────────────────────────────────────────────────────────────────────────── */
+#screen-setup {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 40px 24px;
+  background:
+    radial-gradient(ellipse 80% 50% at 80% 10%, rgba(200,144,58,0.04) 0%, transparent 60%),
+    var(--bg);
+}
+
+.setup-inner {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.setup-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 40px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setup-header h2 {
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+}
+
+.setup-header button {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+
+.setup-header button:hover { color: var(--text-dim); }
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber-dim);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Album select */
+.album-select-wrap {
+  position: relative;
+}
+
+select {
+  width: 100%;
+  appearance: none;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  padding: 10px 40px 10px 14px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+select:focus { border-color: var(--amber-dim); }
+
+.album-select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--amber-dim);
+  pointer-events: none;
+  font-size: 0.8rem;
+}
+
+.album-meta {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  height: 16px;
+}
+
+/* Pill toggles */
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.pill:hover  { border-color: var(--amber-dim); color: var(--text); }
+.pill.active { border-color: var(--amber); background: rgba(200,144,58,0.12); color: var(--amber); }
+
+/* Image count slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--amber);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--amber-dim);
+}
+
+.slider-value {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  color: var(--amber);
+  min-width: 48px;
+  text-align: right;
+}
+
+/* Ramp builder */
+.ramp-display {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 80px;
+  flex-wrap: wrap;
+}
+
+.ramp-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ramp-bar {
+  width: 32px;
+  background: var(--amber);
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+  opacity: 0.7;
+}
+
+.ramp-bar:first-child { opacity: 1; }
+
+.ramp-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* Custom ramp inputs */
+.ramp-custom-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ramp-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ramp-step label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ramp-step input {
+  width: 64px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 5px 8px;
+  text-align: center;
+  outline: none;
+}
+
+.ramp-step input:focus { border-color: var(--amber-dim); }
+
+/* Options grid */
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.option-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s;
+  gap: 10px;
+}
+
+.option-toggle:hover { border-color: var(--amber-dim); }
+.option-toggle.active { border-color: var(--amber); background: rgba(200,144,58,0.06); }
+
+.option-toggle span {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.option-toggle.active span { color: var(--text); }
+
+.toggle-dot {
+  width: 28px; height: 16px;
+  border-radius: 8px;
+  background: var(--text-faint);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.option-toggle.active .toggle-dot { background: var(--amber); }
+
+.toggle-dot::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+
+.option-toggle.active .toggle-dot::after { left: 14px; }
+
+/* Start button */
+.start-btn {
+  width: 100%;
+  margin-top: 32px;
+  padding: 16px;
+  background: var(--amber);
+  border: none;
+  border-radius: var(--radius);
+  color: #1a1410;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.start-btn:hover    { background: var(--amber-bright); }
+.start-btn:disabled { background: var(--text-faint); cursor: not-allowed; }
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* SLIDESHOW SCREEN                                                             */
+/* ─────────────────────────────────────────────────────────────────────────── */
+#screen-session {
+  background: #000;
+  flex-direction: column;
+}
+
+/* Image display */
+.session-image-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.session-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: opacity 0.25s ease;
+}
+
+.session-img.fill-mode {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+}
+
+.session-img.fading { opacity: 0; }
+
+/* HUD overlay (top) */
+.session-hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 10;
+}
+
+#screen-session:hover .session-hud,
+#screen-session.paused .session-hud { opacity: 1; }
+
+.hud-album {
+  font-size: 0.88rem;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-count {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.5);
+}
+
+.hud-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.hud-close:hover { color: #fff; }
+
+/* Controls bar (bottom) */
+.session-controls {
+  padding: 12px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#screen-session:hover .session-controls,
+#screen-session.paused .session-controls { opacity: 1; }
+
+/* Timer ring */
+.timer-ring-wrap {
+  position: relative;
+  width: 48px; height: 48px;
+  flex-shrink: 0;
+}
+
+.timer-ring-wrap svg {
+  transform: rotate(-90deg);
+  width: 48px; height: 48px;
+}
+
+.timer-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 3; }
+.timer-fg {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 131.9;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s linear;
+}
+
+.timer-text {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: #fff;
+}
+
+/* Progress bar */
+.progress-outer {
+  flex: 1;
+  height: 3px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.progress-inner {
+  height: 100%;
+  background: var(--amber);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.4s linear;
+}
+
+/* Control buttons */
+.ctrl-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius);
+  color: rgba(255,255,255,0.7);
+  width: 36px; height: 36px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.ctrl-btn:hover {
+  border-color: rgba(255,255,255,0.5);
+  color: #fff;
+  background: rgba(255,255,255,0.08);
+}
+
+.ctrl-btn.primary {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.ctrl-btn.primary:hover {
+  background: rgba(200,144,58,0.15);
+  color: var(--amber-bright);
+}
+
+/* Next duration badge */
+.next-dur {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 20;
+}
+
+.loading-overlay.hidden { display: none; }
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+
+/* Session end overlay */
+.end-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.92);
+  flex-direction: column;
+  gap: 24px;
+  z-index: 30;
+}
+
+.end-overlay.hidden { display: none; }
+
+.end-overlay h3 {
+  font-size: 2.4rem;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+}
+
+.end-overlay p {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.end-btns {
+  display: flex;
+  gap: 12px;
+}
+
+.end-btn {
+  padding: 10px 24px;
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.end-btn.primary {
+  background: var(--amber);
+  border: none;
+  color: #1a1410;
+}
+
+.end-btn.primary:hover { background: var(--amber-bright); }
+
+.end-btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.end-btn.secondary:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* ── Keyboard hint ────────────────────────────────────────────────────────── */
+.key-hint {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#screen-session:hover .key-hint { opacity: 1; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: LOGIN
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-login">
+  <div class="login-box">
+    <div class="login-brand">
+      <h1>ArtRef</h1>
+      <p>Reference Session Manager</p>
+    </div>
+
+    <div class="form-group">
+      <label>Server URL (Tailscale)</label>
+      <input type="url" id="server-url" placeholder="http://100.x.x.x:5000"
+             autocomplete="off" spellcheck="false" />
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••••••" />
+    </div>
+
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">
+      Enter Studio
+    </button>
+
+    <div class="login-error" id="login-error"></div>
+    <p class="login-hint">Session is stored in memory only</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: SESSION SETUP
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screen-setup">
+  <div class="setup-inner">
+
+    <div class="setup-header">
+      <h2>New Session</h2>
+      <button onclick="doLogout()">Logout</button>
+    </div>
+
+    <!-- Category -->
+    <div class="section">
+      <div class="section-title">Category</div>
+      <div class="album-select-wrap">
+        <select id="category-select" onchange="onCategoryChange()">
+          <option value="">Loading categories…</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Album -->
+    <div class="section">
+      <div class="section-title">Album</div>
+      <div class="album-select-wrap">
+        <select id="album-select" onchange="onAlbumChange()" disabled>
+          <option value="">— Select a category first —</option>
+        </select>
+      </div>
+      <div class="album-meta" id="album-meta"></div>
+    </div>
+
+    <!-- Image Count -->
+    <div class="section">
+      <div class="section-title">Images per Session</div>
+      <div class="slider-row">
+        <input type="range" id="img-count" min="10" max="200" value="60" step="10"
+               oninput="document.getElementById('img-count-val').textContent = this.value" />
+        <span class="slider-value" id="img-count-val">60</span>
+      </div>
+    </div>
+
+    <!-- Timing Mode -->
+    <div class="section">
+      <div class="section-title">Timing Mode</div>
+      <div class="pill-group" id="timing-mode-group">
+        <button class="pill active" data-mode="fixed"     onclick="setTimingMode('fixed')">Fixed Duration</button>
+        <button class="pill"        data-mode="ramp-up"   onclick="setTimingMode('ramp-up')">Ramp Up (fast → slow)</button>
+        <button class="pill"        data-mode="ramp-down" onclick="setTimingMode('ramp-down')">Ramp Down (slow → fast)</button>
+        <button class="pill"        data-mode="custom"    onclick="setTimingMode('custom')">Custom Sequence</button>
+      </div>
+    </div>
+
+    <!-- Fixed duration options -->
+    <div class="section" id="section-fixed">
+      <div class="section-title">Duration per Image</div>
+      <div class="pill-group" id="fixed-dur-group">
+        <button class="pill" data-sec="15"  onclick="setFixedDur(15)">15 s</button>
+        <button class="pill" data-sec="30"  onclick="setFixedDur(30)">30 s</button>
+        <button class="pill active" data-sec="60"  onclick="setFixedDur(60)">1 min</button>
+        <button class="pill" data-sec="120" onclick="setFixedDur(120)">2 min</button>
+        <button class="pill" data-sec="300" onclick="setFixedDur(300)">5 min</button>
+        <button class="pill" data-sec="600" onclick="setFixedDur(600)">10 min</button>
+        <button class="pill" data-sec="1800" onclick="setFixedDur(1800)">30 min</button>
+      </div>
+    </div>
+
+    <!-- Ramp-up preset -->
+    <div class="section hidden" id="section-ramp">
+      <div class="section-title">Ramp Preset</div>
+      <div class="pill-group" id="ramp-preset-group">
+        <button class="pill active" data-preset="gesture" onclick="setRampPreset('gesture')">Gesture (30s–10min)</button>
+        <button class="pill" data-preset="study"   onclick="setRampPreset('study')">Study (1–30min)</button>
+        <button class="pill" data-preset="quick"   onclick="setRampPreset('quick')">Quick Sketch (10s–5min)</button>
+      </div>
+      <div class="ramp-display" id="ramp-preview"></div>
+    </div>
+
+    <!-- Custom sequence -->
+    <div class="section hidden" id="section-custom">
+      <div class="section-title">Custom Duration Sequence <span style="font-size:0.6em;color:var(--text-faint)">(repeats)</span></div>
+      <div class="ramp-custom-row" id="custom-steps-row"></div>
+      <button class="pill" style="margin-top:10px" onclick="addCustomStep()">+ Add Step</button>
+      <div class="ramp-display" id="custom-preview" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Extra options -->
+    <div class="section">
+      <div class="section-title">Options</div>
+      <div class="options-grid">
+        <div class="option-toggle" id="opt-mirror" onclick="toggleOption('mirror')">
+          <span>Mirror Flip (random)</span>
+          <div class="toggle-dot"></div>
+        </div>
+        <div class="option-toggle" id="opt-grayscale" onclick="toggleOption('grayscale')">
+          <span>Grayscale Mode</span>
+          <div class="toggle-dot"></div>
+        </div>
+        <div class="option-toggle active" id="opt-countdown" onclick="toggleOption('countdown')">
+          <span>Show Countdown</span>
+          <div class="toggle-dot"></div>
+        </div>
+        <div class="option-toggle active" id="opt-autoadvance" onclick="toggleOption('autoadvance')">
+          <span>Auto-Advance</span>
+          <div class="toggle-dot"></div>
+        </div>
+        <div class="option-toggle" id="opt-shuffle-each" onclick="toggleOption('shuffle-each')">
+          <span>Re-shuffle Each Loop</span>
+          <div class="toggle-dot"></div>
+        </div>
+        <div class="option-toggle" id="opt-fullscreen" onclick="toggleOption('fullscreen')">
+          <span>Start Fullscreen</span>
+          <div class="toggle-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="start-btn" id="start-btn" onclick="startSession()" disabled>
+      Start Session
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: SESSION / SLIDESHOW
+═══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screen-session">
+
+  <!-- Loading -->
+  <div class="loading-overlay" id="session-loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Preparing session…</div>
+  </div>
+
+  <!-- End overlay -->
+  <div class="end-overlay hidden" id="end-overlay">
+    <h3>Session Complete</h3>
+    <p id="end-stats"></p>
+    <div class="end-btns">
+      <button class="end-btn primary" onclick="restartSession()">New Session</button>
+      <button class="end-btn secondary" onclick="endSession()">Back to Setup</button>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div class="session-hud">
+    <div class="hud-album" id="hud-album"></div>
+    <div class="hud-count" id="hud-count"></div>
+    <button class="hud-close" onclick="endSession()" title="End session">✕</button>
+  </div>
+
+  <!-- Image -->
+  <div class="session-image-wrap">
+    <img class="session-img" id="session-img" src="" alt="" />
+  </div>
+
+  <!-- Key hints -->
+  <div class="key-hint">Space: pause/play · ← Previous · → Next · F: fit/fill · G: grayscale</div>
+
+  <!-- Controls -->
+  <div class="session-controls">
+
+    <!-- Timer ring -->
+    <div class="timer-ring-wrap">
+      <svg viewBox="0 0 48 48">
+        <circle class="timer-bg" cx="24" cy="24" r="21" />
+        <circle class="timer-fg" id="timer-ring" cx="24" cy="24" r="21" />
+      </svg>
+      <div class="timer-text" id="timer-text">–</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-outer" onclick="seekSession(event)">
+      <div class="progress-inner" id="session-progress"></div>
+    </div>
+
+    <!-- Buttons -->
+    <button class="ctrl-btn" onclick="prevImage()" title="Previous (←)">◀</button>
+    <button class="ctrl-btn primary" id="play-btn" onclick="togglePause()" title="Pause (Space)">⏸</button>
+    <button class="ctrl-btn" onclick="nextImage()" title="Next (→)">▶</button>
+    <button class="ctrl-btn" onclick="toggleImageFit()" title="Fill Screen (F)" id="fullscreen-btn">⛶</button>
+
+    <span class="next-dur" id="next-dur-label"></span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  serverUrl: '',
+  token: '',
+  categories: {},
+  selectedCategory: null,
+  albums: [],
+  selectedAlbum: null,
+  // Session config
+  imgCount: 60,
+  timingMode: 'fixed',
+  fixedDuration: 60,
+  rampPreset: 'gesture',
+  customSteps: [30, 60, 120, 300],
+  options: {
+    mirror: false,
+    grayscale: false,
+    countdown: true,
+    autoadvance: true,
+    'shuffle-each': false,
+    fullscreen: false
+  },
+  // Session runtime
+  images: [],
+  currentIndex: 0,
+  currentDuration: 60,
+  timeLeft: 60,
+  paused: false,
+  timerInterval: null,
+  sessionStart: null,
+  totalImages: 0,
+  imageFit: 'contain' // 'contain' or 'cover'
+};
+
+// Ramp presets: array of seconds per image (will be distributed across images)
+const RAMP_PRESETS = {
+  gesture: [30, 60, 120, 300, 600],
+  study:   [60, 120, 300, 600, 1800],
+  quick:   [10, 20, 30, 60, 180, 300],
+};
+
+// ── Screen navigation ─────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ── Local storage for server URL (non-sensitive) ───────────────────────────
+function loadPrefs() {
+  try {
+    const url = localStorage.getItem('artref_url');
+    if (url) document.getElementById('server-url').value = url;
+  } catch(e) {}
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const url      = document.getElementById('server-url').value.trim().replace(/\/$/, '');
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+
+  if (!url || !password) {
+    errEl.textContent = 'Please enter server URL and password.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  errEl.textContent = '';
+
+  try {
+    const res = await fetch(`${url}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+
+    if (!res.ok) {
+      errEl.textContent = res.status === 401 ? 'Invalid password.' : `Server error ${res.status}`;
+      return;
+    }
+
+    const data = await res.json();
+    state.serverUrl = url;
+    state.token = data.token;
+
+    try { localStorage.setItem('artref_url', url); } catch(e) {}
+
+    await loadAlbums();
+    showScreen('screen-setup');
+
+  } catch(e) {
+    errEl.textContent = 'Cannot reach server. Check URL and Tailscale connection.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enter Studio';
+  }
+}
+
+function doLogout() {
+  state.token = '';
+  state.albums = [];
+  document.getElementById('password').value = '';
+  showScreen('screen-login');
+}
+
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ── Albums ────────────────────────────────────────────────────────────────────
+async function loadAlbums() {
+  const res = await fetch(`${state.serverUrl}/api/albums`, {
+    headers: { 'X-Auth-Token': state.token }
+  });
+  state.categories = await res.json();
+
+  const catSel = document.getElementById('category-select');
+  const categories = Object.keys(state.categories).sort();
+  
+  catSel.innerHTML = '<option value="">— Choose a category —</option>' +
+    categories.map(cat => 
+      `<option value="${escHtml(cat)}">${escHtml(cat)} (${state.categories[cat].length} albums)</option>`
+    ).join('');
+}
+
+function onCategoryChange() {
+  const catSel = document.getElementById('category-select');
+  const category = catSel.value;
+  
+  if (!category) {
+    state.selectedCategory = null;
+    state.albums = [];
+    const albumSel = document.getElementById('album-select');
+    albumSel.disabled = true;
+    albumSel.innerHTML = '<option value="">— Select a category first —</option>';
+    document.getElementById('album-meta').textContent = '';
+    document.getElementById('start-btn').disabled = true;
+    return;
+  }
+  
+  state.selectedCategory = category;
+  state.albums = state.categories[category];
+  
+  const albumSel = document.getElementById('album-select');
+  albumSel.disabled = false;
+  albumSel.innerHTML = '<option value="">— Choose an album —</option>' +
+    state.albums.map(a =>
+      `<option value="${escHtml(a.path)}">${escHtml(a.name)} (${a.count.toLocaleString()} images)</option>`
+    ).join('');
+  
+  document.getElementById('album-meta').textContent = '';
+  document.getElementById('start-btn').disabled = true;
+}
+
+function onAlbumChange() {
+  const sel = document.getElementById('album-select');
+  const albumPath = sel.value;
+  const album = state.albums.find(a => a.path === albumPath);
+  state.selectedAlbum = album || null;
+  const meta = document.getElementById('album-meta');
+
+  if (album) {
+    meta.textContent = `${album.count.toLocaleString()} images total`;
+    document.getElementById('start-btn').disabled = false;
+  } else {
+    meta.textContent = '';
+    document.getElementById('start-btn').disabled = true;
+  }
+}
+
+// ── Timing controls ───────────────────────────────────────────────────────────
+function setTimingMode(mode) {
+  state.timingMode = mode;
+  document.querySelectorAll('#timing-mode-group .pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.mode === mode);
+  });
+
+  document.getElementById('section-fixed').classList.toggle('hidden',  mode !== 'fixed');
+  document.getElementById('section-ramp').classList.toggle('hidden',   mode !== 'ramp-up' && mode !== 'ramp-down');
+  document.getElementById('section-custom').classList.toggle('hidden', mode !== 'custom');
+}
+
+function setFixedDur(sec) {
+  state.fixedDuration = sec;
+  document.querySelectorAll('#fixed-dur-group .pill').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.sec) === sec);
+  });
+}
+
+function setRampPreset(name) {
+  state.rampPreset = name;
+  document.querySelectorAll('#ramp-preset-group .pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.preset === name);
+  });
+  renderRampPreview(RAMP_PRESETS[name], 'ramp-preview');
+}
+
+function renderRampPreview(steps, containerId, reversed = false) {
+  const arr = reversed ? [...steps].reverse() : steps;
+  const max = Math.max(...arr);
+  const el  = document.getElementById(containerId);
+  el.innerHTML = arr.map(s => `
+    <div class="ramp-bar-wrap">
+      <div class="ramp-bar" style="height:${Math.max(8, (s/max)*56)}px"></div>
+      <div class="ramp-label">${fmtDur(s)}</div>
+    </div>
+  `).join('');
+}
+
+// Custom steps
+function initCustomSteps() {
+  renderCustomSteps();
+}
+
+function renderCustomSteps() {
+  const row = document.getElementById('custom-steps-row');
+  row.innerHTML = state.customSteps.map((s, i) => `
+    <div class="ramp-step">
+      <label>Step ${i+1}</label>
+      <input type="number" min="5" max="3600" value="${s}"
+             oninput="updateCustomStep(${i}, this.value)" />
+    </div>
+  `).join('') + (state.customSteps.length > 1 ? `
+    <div class="ramp-step" style="justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="pill" style="height:34px;padding:4px 10px" onclick="removeCustomStep()">Remove</button>
+    </div>
+  ` : '');
+  renderCustomPreview();
+}
+
+function updateCustomStep(i, val) {
+  state.customSteps[i] = Math.max(5, parseInt(val) || 5);
+  renderCustomPreview();
+}
+
+function addCustomStep() {
+  state.customSteps.push(state.customSteps[state.customSteps.length - 1] * 2 || 60);
+  renderCustomSteps();
+}
+
+function removeCustomStep() {
+  if (state.customSteps.length > 1) {
+    state.customSteps.pop();
+    renderCustomSteps();
+  }
+}
+
+function renderCustomPreview() {
+  renderRampPreview(state.customSteps, 'custom-preview');
+}
+
+// ── Options toggles ───────────────────────────────────────────────────────────
+function toggleOption(key) {
+  state.options[key] = !state.options[key];
+  document.getElementById(`opt-${key}`).classList.toggle('active', state.options[key]);
+}
+
+// ── Build duration schedule from config ───────────────────────────────────────
+function buildSchedule(count) {
+  const mode = state.timingMode;
+  const schedule = [];
+
+  if (mode === 'fixed') {
+    for (let i = 0; i < count; i++) schedule.push(state.fixedDuration);
+
+  } else if (mode === 'ramp-up' || mode === 'ramp-down') {
+    const steps = RAMP_PRESETS[state.rampPreset];
+    const arr   = mode === 'ramp-down' ? [...steps].reverse() : steps;
+    // Distribute steps evenly across images
+    for (let i = 0; i < count; i++) {
+      const idx = Math.floor((i / count) * arr.length);
+      schedule.push(arr[Math.min(idx, arr.length - 1)]);
+    }
+
+  } else if (mode === 'custom') {
+    const steps = state.customSteps;
+    for (let i = 0; i < count; i++) {
+      schedule.push(steps[i % steps.length]);
+    }
+  }
+
+  return schedule;
+}
+
+// ── Start session ─────────────────────────────────────────────────────────────
+async function startSession() {
+  if (!state.selectedAlbum) return;
+
+  showScreen('screen-session');
+  document.getElementById('session-loading').classList.remove('hidden');
+  document.getElementById('end-overlay').classList.add('hidden');
+  document.getElementById('loading-text').textContent = 'Selecting images…';
+
+  try {
+    const count = parseInt(document.getElementById('img-count').value);
+    const albumPath = state.selectedAlbum.path;
+    const url   = `${state.serverUrl}/api/session-images?album=${encodeURIComponent(albumPath)}&count=${count}`;
+    const res   = await fetch(url, { headers: { 'X-Auth-Token': state.token } });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    state.images   = data.images.map(u => `${state.serverUrl}${u}?t=${state.token}`);
+    state.schedule = buildSchedule(state.images.length);
+    state.currentIndex = 0;
+    state.sessionStart = Date.now();
+    state.totalImages  = state.images.length;
+    state.paused       = false;
+
+    document.getElementById('hud-album').textContent = state.selectedAlbum.name;
+
+    if (state.options.fullscreen && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
+    document.getElementById('session-loading').classList.add('hidden');
+    displayImage(0);
+
+  } catch(e) {
+    document.getElementById('loading-text').textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── Image display ─────────────────────────────────────────────────────────────
+function displayImage(index) {
+  clearInterval(state.timerInterval);
+  if (index >= state.images.length) { showEndOverlay(); return; }
+
+  state.currentIndex   = index;
+  state.currentDuration = state.schedule[index];
+  state.timeLeft        = state.currentDuration;
+
+  const img = document.getElementById('session-img');
+
+  // Cross-fade
+  img.classList.add('fading');
+  setTimeout(() => {
+    img.src = state.images[index];
+    img.onload = () => img.classList.remove('fading');
+    img.onerror = () => { img.classList.remove('fading'); };
+
+    // Apply options
+    img.style.filter = [
+      state.options.grayscale ? 'grayscale(100%)' : '',
+    ].filter(Boolean).join(' ');
+
+    img.style.transform = (state.options.mirror && Math.random() > 0.5) ? 'scaleX(-1)' : '';
+    
+    // Reapply fill mode if active
+    if (state.imageFit === 'cover') {
+      img.classList.add('fill-mode');
+    } else {
+      img.classList.remove('fill-mode');
+    }
+  }, 200);
+
+  // Update HUD
+  const total = state.images.length;
+  document.getElementById('hud-count').textContent =
+    `${index + 1} / ${total}`;
+  document.getElementById('session-progress').style.width =
+    `${((index) / total) * 100}%`;
+
+  // Next duration label
+  const next = state.schedule[index + 1];
+  document.getElementById('next-dur-label').textContent =
+    next !== undefined ? `Next: ${fmtDur(next)}` : '';
+
+  // Timer
+  updateTimerDisplay();
+
+  if (state.options.autoadvance && !state.paused) {
+    state.timerInterval = setInterval(tick, 1000);
+  }
+}
+
+function tick() {
+  if (state.paused) return;
+  state.timeLeft--;
+  updateTimerDisplay();
+  if (state.timeLeft <= 0) {
+    nextImage();
+  }
+}
+
+function updateTimerDisplay() {
+  const dur  = state.currentDuration;
+  const left = state.timeLeft;
+  const frac = 1 - (left / dur);
+  const circ = 131.9;
+
+  if (state.options.countdown) {
+    document.getElementById('timer-text').textContent = fmtDurShort(left);
+  } else {
+    document.getElementById('timer-text').textContent = '';
+  }
+
+  document.getElementById('timer-ring').style.strokeDashoffset =
+    state.options.autoadvance ? (circ * frac).toString() : '0';
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function nextImage() {
+  clearInterval(state.timerInterval);
+  displayImage(state.currentIndex + 1);
+}
+
+function prevImage() {
+  if (state.currentIndex > 0) {
+    clearInterval(state.timerInterval);
+    displayImage(state.currentIndex - 1);
+  }
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  const btn = document.getElementById('play-btn');
+  btn.textContent = state.paused ? '▶' : '⏸';
+  document.getElementById('screen-session').classList.toggle('paused', state.paused);
+
+  if (!state.paused && state.options.autoadvance) {
+    clearInterval(state.timerInterval);
+    state.timerInterval = setInterval(tick, 1000);
+  }
+}
+
+function seekSession(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const frac = (e.clientX - rect.left) / rect.width;
+  const idx  = Math.floor(frac * state.images.length);
+  clearInterval(state.timerInterval);
+  displayImage(Math.max(0, Math.min(idx, state.images.length - 1)));
+}
+
+function showEndOverlay() {
+  clearInterval(state.timerInterval);
+  const secs = Math.round((Date.now() - state.sessionStart) / 1000);
+  document.getElementById('end-stats').textContent =
+    `${state.totalImages} images · ${fmtDurFull(secs)} total`;
+  document.getElementById('end-overlay').classList.remove('hidden');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+function endSession() {
+  clearInterval(state.timerInterval);
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  showScreen('screen-setup');
+}
+
+function restartSession() {
+  document.getElementById('end-overlay').classList.add('hidden');
+  startSession();
+}
+
+function toggleImageFit() {
+  state.imageFit = state.imageFit === 'contain' ? 'cover' : 'contain';
+  const img = document.getElementById('session-img');
+  
+  if (state.imageFit === 'cover') {
+    img.classList.add('fill-mode');
+  } else {
+    img.classList.remove('fill-mode');
+  }
+  
+  const btn = document.getElementById('fullscreen-btn');
+  if (btn) {
+    btn.textContent = state.imageFit === 'contain' ? '⛶' : '⊡';
+    btn.title = state.imageFit === 'contain' ? 'Fill Screen (F)' : 'Fit to Screen (F)';
+  }
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const s = document.getElementById('screen-session');
+  if (s.classList.contains('hidden')) return;
+
+  if (e.key === ' ')           { e.preventDefault(); togglePause(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); nextImage(); }
+  else if (e.key === 'ArrowLeft')  { e.preventDefault(); prevImage(); }
+  else if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    toggleImageFit();
+  }
+  else if (e.key === 'g' || e.key === 'G') {
+    toggleOption('grayscale');
+    const img = document.getElementById('session-img');
+    img.style.filter = state.options.grayscale ? 'grayscale(100%)' : '';
+  }
+  else if (e.key === 'Escape') { endSession(); }
+});
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function fmtDur(sec) {
+  if (sec < 60)  return `${sec}s`;
+  if (sec < 3600) return `${sec/60}m`;
+  return `${sec/3600}h`;
+}
+
+function fmtDurShort(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m > 0) return `${m}:${String(s).padStart(2,'0')}`;
+  return `${sec}`;
+}
+
+function fmtDurFull(sec) {
+  if (sec < 60)   return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec/60)}m ${sec%60}s`;
+  return `${Math.floor(sec/3600)}h ${Math.floor((sec%3600)/60)}m`;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadPrefs();
+setRampPreset('gesture');
+initCustomSteps();
+</script>
+</body>
+</html>

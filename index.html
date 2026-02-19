@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Art Ref Timer— Reference Session</title>
+<title>Art Ref Timer — Reference Session</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
@@ -526,8 +526,11 @@ input[type=range]::-webkit-slider-thumb {
   object-fit: cover;
   cursor: grab;
   user-select: none;
-  transition: transform 0.2s ease-out;
   transform-origin: center center;
+}
+
+.session-img.fill-mode:not(.dragging) {
+  transition: transform 0.2s ease-out;
 }
 
 .session-img.fill-mode.dragging {
@@ -1062,8 +1065,8 @@ const state = {
   isDragging: false,
   dragStartX: 0,
   dragStartY: 0,
-  panX: 50, // object-position percentage
-  panY: 50,
+  panX: 0, // pixel offset
+  panY: 0, // pixel offset
   zoomLevel: 1.0 // 1.0 to 3.0
 };
 
@@ -1388,10 +1391,9 @@ function displayImage(index) {
     if (state.imageFit === 'cover') {
       img.classList.add('fill-mode');
       // Reset pan and zoom to center for new image
-      state.panX = 50;
-      state.panY = 50;
+      state.panX = 0;
+      state.panY = 0;
       state.zoomLevel = 1.0;
-      img.style.objectPosition = '50% 50%';
       img.style.transform = '';
     } else {
       img.classList.remove('fill-mode');
@@ -1505,10 +1507,9 @@ function toggleImageFit() {
   } else {
     img.classList.remove('fill-mode');
     // Reset pan position and zoom when switching back to contain
-    state.panX = 50;
-    state.panY = 50;
+    state.panX = 0;
+    state.panY = 0;
     state.zoomLevel = 1.0;
-    img.style.objectPosition = '50% 50%';
     img.style.transform = '';
   }
   
@@ -1540,17 +1541,12 @@ function setupImagePanning() {
     const deltaX = e.clientX - state.dragStartX;
     const deltaY = e.clientY - state.dragStartY;
     
-    // Convert pixel delta to percentage (inverted because we're moving the image, not the viewport)
-    // Sensitivity: divide by viewport dimension to get percentage
-    const sensitivity = 0.3; // Adjust this to make dragging faster/slower
-    const percentX = -(deltaX / window.innerWidth) * 100 * sensitivity;
-    const percentY = -(deltaY / window.innerHeight) * 100 * sensitivity;
+    // Update pan position in pixels
+    state.panX += deltaX;
+    state.panY += deltaY;
     
-    // Update pan position with bounds (0-100%)
-    state.panX = Math.max(0, Math.min(100, state.panX + percentX));
-    state.panY = Math.max(0, Math.min(100, state.panY + percentY));
-    
-    img.style.objectPosition = `${state.panX}% ${state.panY}%`;
+    // Apply both zoom and pan via transform
+    img.style.transform = `scale(${state.zoomLevel}) translate(${state.panX}px, ${state.panY}px)`;
     
     // Reset drag start for next delta calculation
     state.dragStartX = e.clientX;
@@ -1583,14 +1579,12 @@ function setupImagePanning() {
     const deltaX = touch.clientX - state.dragStartX;
     const deltaY = touch.clientY - state.dragStartY;
     
-    const sensitivity = 0.3;
-    const percentX = -(deltaX / window.innerWidth) * 100 * sensitivity;
-    const percentY = -(deltaY / window.innerHeight) * 100 * sensitivity;
+    // Update pan position in pixels
+    state.panX += deltaX;
+    state.panY += deltaY;
     
-    state.panX = Math.max(0, Math.min(100, state.panX + percentX));
-    state.panY = Math.max(0, Math.min(100, state.panY + percentY));
-    
-    img.style.objectPosition = `${state.panX}% ${state.panY}%`;
+    // Apply both zoom and pan via transform
+    img.style.transform = `scale(${state.zoomLevel}) translate(${state.panX}px, ${state.panY}px)`;
     
     state.dragStartX = touch.clientX;
     state.dragStartY = touch.clientY;
@@ -1618,7 +1612,8 @@ function setupImageZoom() {
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     state.zoomLevel = Math.max(1.0, Math.min(3.0, state.zoomLevel + delta));
     
-    img.style.transform = `scale(${state.zoomLevel})`;
+    // Apply both zoom and pan
+    img.style.transform = `scale(${state.zoomLevel}) translate(${state.panX}px, ${state.panY}px)`;
   }, { passive: false });
 }
 
@@ -1644,7 +1639,7 @@ document.addEventListener('keydown', e => {
     if (img.classList.contains('fill-mode')) {
       e.preventDefault();
       state.zoomLevel = Math.min(3.0, state.zoomLevel + 0.2);
-      img.style.transform = `scale(${state.zoomLevel})`;
+      img.style.transform = `scale(${state.zoomLevel}) translate(${state.panX}px, ${state.panY}px)`;
     }
   }
   else if (e.key === '-' || e.key === '_') {
@@ -1652,7 +1647,7 @@ document.addEventListener('keydown', e => {
     if (img.classList.contains('fill-mode')) {
       e.preventDefault();
       state.zoomLevel = Math.max(1.0, state.zoomLevel - 0.2);
-      img.style.transform = `scale(${state.zoomLevel})`;
+      img.style.transform = `scale(${state.zoomLevel}) translate(${state.panX}px, ${state.panY}px)`;
     }
   }
   else if (e.key === '0') {
@@ -1660,6 +1655,8 @@ document.addEventListener('keydown', e => {
     if (img.classList.contains('fill-mode')) {
       e.preventDefault();
       state.zoomLevel = 1.0;
+      state.panX = 0;
+      state.panY = 0;
       img.style.transform = '';
     }
   }

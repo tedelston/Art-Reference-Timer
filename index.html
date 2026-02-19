@@ -524,6 +524,12 @@ input[type=range]::-webkit-slider-thumb {
   max-width: none;
   max-height: none;
   object-fit: cover;
+  cursor: grab;
+  user-select: none;
+}
+
+.session-img.fill-mode.dragging {
+  cursor: grabbing;
 }
 
 .session-img.fading { opacity: 0; }
@@ -984,7 +990,7 @@ input[type=range]::-webkit-slider-thumb {
   </div>
 
   <!-- Key hints -->
-  <div class="key-hint">Space: pause/play · ← Previous · → Next · F: fit/fill · G: grayscale</div>
+  <div class="key-hint">Space: pause/play · ← Previous · → Next · F: fit/fill (drag to pan) · G: grayscale</div>
 
   <!-- Controls -->
   <div class="session-controls">
@@ -1049,7 +1055,13 @@ const state = {
   timerInterval: null,
   sessionStart: null,
   totalImages: 0,
-  imageFit: 'contain' // 'contain' or 'cover'
+  imageFit: 'contain', // 'contain' or 'cover'
+  // Image panning
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  panX: 50, // object-position percentage
+  panY: 50
 };
 
 // Ramp presets: array of seconds per image (will be distributed across images)
@@ -1372,6 +1384,10 @@ function displayImage(index) {
     // Reapply fill mode if active
     if (state.imageFit === 'cover') {
       img.classList.add('fill-mode');
+      // Reset pan to center for new image
+      state.panX = 50;
+      state.panY = 50;
+      img.style.objectPosition = '50% 50%';
     } else {
       img.classList.remove('fill-mode');
     }
@@ -1483,6 +1499,10 @@ function toggleImageFit() {
     img.classList.add('fill-mode');
   } else {
     img.classList.remove('fill-mode');
+    // Reset pan position when switching back to contain
+    state.panX = 50;
+    state.panY = 50;
+    img.style.objectPosition = '50% 50%';
   }
   
   const btn = document.getElementById('fullscreen-btn');
@@ -1490,6 +1510,91 @@ function toggleImageFit() {
     btn.textContent = state.imageFit === 'contain' ? '⛶' : '⊡';
     btn.title = state.imageFit === 'contain' ? 'Fill Screen (F)' : 'Fit to Screen (F)';
   }
+}
+
+// ── Image panning (drag in fill mode) ────────────────────────────────────────
+function setupImagePanning() {
+  const img = document.getElementById('session-img');
+  
+  img.addEventListener('mousedown', (e) => {
+    if (!img.classList.contains('fill-mode')) return;
+    e.preventDefault();
+    state.isDragging = true;
+    state.dragStartX = e.clientX;
+    state.dragStartY = e.clientY;
+    img.classList.add('dragging');
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!state.isDragging) return;
+    e.preventDefault();
+    
+    const img = document.getElementById('session-img');
+    const deltaX = e.clientX - state.dragStartX;
+    const deltaY = e.clientY - state.dragStartY;
+    
+    // Convert pixel delta to percentage (inverted because we're moving the image, not the viewport)
+    // Sensitivity: divide by viewport dimension to get percentage
+    const sensitivity = 0.1; // Adjust this to make dragging faster/slower
+    const percentX = -(deltaX / window.innerWidth) * 100 * sensitivity;
+    const percentY = -(deltaY / window.innerHeight) * 100 * sensitivity;
+    
+    // Update pan position with bounds (0-100%)
+    state.panX = Math.max(0, Math.min(100, state.panX + percentX));
+    state.panY = Math.max(0, Math.min(100, state.panY + percentY));
+    
+    img.style.objectPosition = `${state.panX}% ${state.panY}%`;
+    
+    // Reset drag start for next delta calculation
+    state.dragStartX = e.clientX;
+    state.dragStartY = e.clientY;
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    const img = document.getElementById('session-img');
+    img.classList.remove('dragging');
+  });
+  
+  // Touch support for mobile
+  img.addEventListener('touchstart', (e) => {
+    if (!img.classList.contains('fill-mode')) return;
+    e.preventDefault();
+    state.isDragging = true;
+    state.dragStartX = e.touches[0].clientX;
+    state.dragStartY = e.touches[0].clientY;
+    img.classList.add('dragging');
+  });
+  
+  document.addEventListener('touchmove', (e) => {
+    if (!state.isDragging) return;
+    e.preventDefault();
+    
+    const img = document.getElementById('session-img');
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - state.dragStartX;
+    const deltaY = touch.clientY - state.dragStartY;
+    
+    const sensitivity = 0.1;
+    const percentX = -(deltaX / window.innerWidth) * 100 * sensitivity;
+    const percentY = -(deltaY / window.innerHeight) * 100 * sensitivity;
+    
+    state.panX = Math.max(0, Math.min(100, state.panX + percentX));
+    state.panY = Math.max(0, Math.min(100, state.panY + percentY));
+    
+    img.style.objectPosition = `${state.panX}% ${state.panY}%`;
+    
+    state.dragStartX = touch.clientX;
+    state.dragStartY = touch.clientY;
+  });
+  
+  document.addEventListener('touchend', () => {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    const img = document.getElementById('session-img');
+    img.classList.remove('dragging');
+  });
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -1540,6 +1645,7 @@ function escHtml(str) {
 loadPrefs();
 setRampPreset('gesture');
 initCustomSteps();
+setupImagePanning();
 </script>
 </body>
 </html>
